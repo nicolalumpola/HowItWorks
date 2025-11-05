@@ -654,6 +654,13 @@
       });
       __teardowns.push(() => st.kill());
 
+      // Surface S2 references for optional debug overlay (non-invasive)
+      try {
+        if (typeof window !== "undefined" && !window.__S2__) {
+          window.__S2__ = { tl, trigger: st };
+        }
+      } catch {}
+
       // mark ready → release inputs, keep scroll at section start
       assetsReady = true;
       disableInputLock();
