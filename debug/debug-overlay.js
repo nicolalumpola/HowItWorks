@@ -147,10 +147,14 @@
   }
 
   // Toggle collapsed via gear
+  function setLSBool(key, val) { try { localStorage.setItem(key, val ? '1' : '0'); } catch (_) {} }
+  function getLSBool(key, defVal) { try { const v = localStorage.getItem(key); return v == null ? defVal : v === '1'; } catch (_) { return defVal; } }
+
   gear.addEventListener('click', function (e) {
     e.preventDefault();
     e.stopPropagation();
     root.classList.toggle('collapsed');
+    setLSBool('S2_DEBUG_COLLAPSED', root.classList.contains('collapsed'));
   });
 
   // Scrub toggle UI + shortcut
@@ -162,6 +166,7 @@
     e.preventDefault(); e.stopPropagation();
     const on = scrubWrap.classList.contains('hidden');
     setScrubVisible(on);
+    setLSBool('S2_DEBUG_SCRUB', on);
   });
 
   // FPS tracking
@@ -266,7 +271,11 @@
   window.__S2_DEBUG__ = {
     show: function () {
       try { window.localStorage.setItem('DEBUG_S2', '1'); } catch (_) {}
-      setCollapsed(true); // default collapsed
+      // Defaults: expanded + scrub ON unless persisted
+      const collapsed = getLSBool('S2_DEBUG_COLLAPSED', false);
+      const scrubOn = getLSBool('S2_DEBUG_SCRUB', true);
+      setCollapsed(collapsed);
+      setScrubVisible(scrubOn);
       showInternal();
     },
     hide: function () {
@@ -280,6 +289,7 @@
     toggleScrub: function () {
       const on = scrubWrap.classList.contains('hidden');
       setScrubVisible(on);
+      setLSBool('S2_DEBUG_SCRUB', on);
     },
   };
 

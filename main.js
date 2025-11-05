@@ -551,6 +551,10 @@
         { opacity: 1, scale: 1, duration: 0.22, stagger: 0.03 },
         "phoneAntennaIn"
       );
+      // lock phone screen state at end of phoneAntennaIn
+      tl.set(screenBlack, { opacity: 1 }, "phoneAntennaIn+=0.22");
+      tl.set(screenOut, { opacity: 0 }, "phoneAntennaIn+=0.22");
+      tl.set(screenIn, { opacity: 0 }, "phoneAntennaIn+=0.22");
 
       tl.addLabel("idleAfterPhone", "+=0.08")
         .to(
@@ -565,16 +569,15 @@
         );
 
       tl.addLabel("outgoingPhase", "+=0.02")
-        .call(() => {
-          show(screenOut);
-        })
         .to(
           [dotsLMount, dotsRMount],
           { opacity: 1, duration: 0.18 },
           "outgoingPhase"
         )
-        .to(screenBlack, { opacity: 0, duration: 0.18 }, "outgoingPhase")
-        .to(screenOut, { opacity: 1, duration: 0.18 }, "outgoingPhase")
+        // instant screen swap to avoid blended frames during scrubs
+        .set(screenBlack, { opacity: 0 }, "outgoingPhase")
+        .set(screenOut, { opacity: 1 }, "outgoingPhase")
+        .set(screenIn, { opacity: 0 }, "outgoingPhase")
         .to(
           topoSVG.querySelectorAll("#topo-phone *"),
           {
@@ -591,11 +594,10 @@
       );
 
       tl.addLabel("incomingPhase", "+=0.02")
-        .call(() => {
-          show(screenIn);
-        })
-        .to(screenOut, { opacity: 0, duration: 0.18 }, "incomingPhase")
-        .to(screenIn, { opacity: 1, duration: 0.18 }, "incomingPhase")
+        // instant screen swap to avoid blended frames during scrubs
+        .set(screenBlack, { opacity: 0 }, "incomingPhase")
+        .set(screenOut, { opacity: 0 }, "incomingPhase")
+        .set(screenIn, { opacity: 1 }, "incomingPhase")
         .to(
           topoSVG.querySelectorAll("#topo-phone *"),
           {
@@ -626,6 +628,37 @@
 
       const totalDur = tl.duration();
 
+      // --- micro crossfade timelines (paused) that play/reverse when crossing labels
+      const fadeToOutgoing = gsap
+        .timeline({ paused: true })
+        .fromTo(
+          screenBlack,
+          { opacity: 1 },
+          { opacity: 0, duration: 0.15, ease: "power1.out" },
+          0
+        )
+        .fromTo(
+          screenOut,
+          { opacity: 0 },
+          { opacity: 1, duration: 0.15, ease: "power1.out" },
+          0
+        );
+
+      const fadeToIncoming = gsap
+        .timeline({ paused: true })
+        .fromTo(
+          screenOut,
+          { opacity: 1 },
+          { opacity: 0, duration: 0.15, ease: "power1.out" },
+          0
+        )
+        .fromTo(
+          screenIn,
+          { opacity: 0 },
+          { opacity: 1, duration: 0.15, ease: "power1.out" },
+          0
+        );
+
       // --- replace pre-pin with the final scrubbed trigger now that tl exists
       const st = ScrollTrigger.create({
         trigger: section,
@@ -653,6 +686,24 @@
         },
       });
       __teardowns.push(() => st.kill());
+
+      // ScrollTriggers tied to timeline labels to play/reverse micro crossfades
+      const stOutXF = ScrollTrigger.create({
+        containerAnimation: tl,
+        start: "outgoingPhase",
+        end: "idleAfterOutgoing",
+        onEnter: () => fadeToOutgoing.play(0),
+        onEnterBack: () => fadeToOutgoing.reverse(),
+      });
+      const stInXF = ScrollTrigger.create({
+        containerAnimation: tl,
+        start: "incomingPhase",
+        end: "tailIdle",
+        onEnter: () => fadeToIncoming.play(0),
+        onEnterBack: () => fadeToIncoming.reverse(),
+      });
+      __teardowns.push(() => stOutXF.kill());
+      __teardowns.push(() => stInXF.kill());
 
       // Surface S2 references for optional debug overlay (non-invasive)
       try {
