@@ -1,0 +1,77 @@
+:root {
+  --bg: #1b1b1b;
+  --topo-base: #634729; /* base topo color */
+  --topo-highlight: #f5a145; /* highlight under phone/antenna */
+}
+
+/* Page */
+html,
+body {
+  height: 100%;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: #fff;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,
+    sans-serif;
+}
+
+/* Pinned section container */
+.pin-section {
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Mount points */
+#topoMount,
+#satMount {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+}
+
+/* Dots layer sits above sat/phone/antenna but below any future particles */
+#dotsMount {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 1280px; /* your design space */
+  height: 720px; /* your design space */
+  pointer-events: none;
+  opacity: 0; /* hidden until phone trigger */
+  z-index: 3;
+}
+
+/* Keep SVGs crisp */
+#dotsMount svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  shape-rendering: geometricPrecision;
+}
+
+/* ---------- TOPOGRAPHY ---------- */
+/* Base topo is fully opaque and uses the base color by default.  */
+/* IMPORTANT: no !important here, so JS can override specific segments. */
+#topoMount svg #topoPaths path,
+#topoMount svg #topoPaths polyline,
+#topoMount svg #topoPaths line {
+  fill: var(--topo-base);
+  fill-opacity: 1;
+  stroke: none;
+  filter: none;
+  pointer-events: none;
+}
+
+/* Optional utility classes you can toggle from JS if you like */
+.topo--highlight {
+  fill: var(--topo-highlight);
+}
+
+/* Spacer for playground / outside the pin */
+.spacer {
+  height: 120vh;
+}
