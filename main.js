@@ -491,13 +491,21 @@
         "#Screen-Incoming",
         "[id='Incoming-Screen']",
       ]);
-      [screenBlack, screenOut, screenIn].forEach(forceShow);
+      const screenConn = q([
+        "#Connected-Screen",
+        "#Screen-Connected",
+        "[id='Connected-Screen']",
+        "#Screen-Connecter",
+        "[id='Screen-Connecter']",
+      ]);
+      [screenBlack, screenOut, screenIn, screenConn].forEach(forceShow);
       // Blank is never shown; keep it fully transparent throughout
       gsap.set(screenBlack, { opacity: 0 });
       hide(screenBlack);
       // Outgoing is our default/initial phone screen
       show(screenOut);
       hide(screenIn);
+      hide(screenConn);
 
       // antenna fill baseline
       antennaSVG
@@ -582,11 +590,6 @@
 
       tl.addLabel("idleAfterPhone", "+=0.08")
         .to(
-          [dotsLMount, dotsRMount],
-          { opacity: 0, duration: 0.1 },
-          "idleAfterPhone"
-        )
-        .to(
           {},
           { duration: IDLE_BETWEEN_PHONE_AND_OUTGOING },
           "idleAfterPhone"
@@ -622,10 +625,25 @@
           "incomingPhase+=0.02"
         );
 
-      tl.addLabel("tailIdle", "+=0.00").to(
+      // mark end of incoming phase for ScrollTrigger direction logic
+      tl.addLabel("incomingPhaseEnd");
+
+      tl.addLabel("incomingIdle", "+=0.00").to(
         {},
         { duration: TAIL_IDLE_AFTER_ALL },
-        "tailIdle"
+        "incomingIdle"
+      );
+
+      // After incoming, we show the connected screen
+      tl.addLabel("connectedPhase", "+=0.00")
+        .to(screenIn, { opacity: 0, duration: 0.18 }, "connectedPhase")
+        .to(screenConn, { opacity: 1, duration: 0.18 }, "connectedPhase");
+
+      // Final tail hold
+      tl.addLabel("connectedIdle", "+=0.00").to(
+        {},
+        { duration: TAIL_IDLE_AFTER_ALL },
+        "connectedIdle"
       );
 
       const totalDur = tl.duration();
@@ -640,14 +658,15 @@
         animation: tl,
         anticipatePin: 1,
         onUpdate(self) {
-          // reverse particle direction between phases
+          // reverse particle direction after incomingAnimation fully completes
           const p = self.progress;
-          const outStart = (tl.labels.phoneAntennaIn ?? 0) / totalDur; // dots start here now
-          const inStart = (tl.labels.incomingPhase ?? totalDur) / totalDur;
-          if (p >= inStart) {
+          const dotsOnStart = (tl.labels.phoneAntennaIn ?? 0) / totalDur;
+          const incomingEnd = ((tl.labels.incomingPhaseEnd ?? tl.labels.incomingPhase) ?? totalDur) / totalDur;
+
+          if (p >= incomingEnd) {
             leftStream?.setDirection(-1);
             rightStream?.setDirection(-1);
-          } else if (p >= outStart) {
+          } else if (p >= dotsOnStart) {
             leftStream?.setDirection(1);
             rightStream?.setDirection(1);
           } else {
