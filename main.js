@@ -3,6 +3,7 @@
    — Temporary input suppression (wheel/touch/space/page) during preload
    — Final scrubbed trigger attaches once timeline exists
 */
+// S2 touch marker — 2025-11-06T00:00:00.000Z
 (() => {
   // -------- teardown for hot reloads
   try {
@@ -765,3 +766,4 @@
     }
   })();
 })();
+// S2 touch marker — 2025-11-06T00:00:00.000Z
