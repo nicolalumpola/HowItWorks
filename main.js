@@ -553,13 +553,28 @@
         { opacity: 1, scale: 1, duration: 0.22, stagger: 0.03 },
         "phoneAntennaIn"
       );
-      // lock phone screen state at end of phoneAntennaIn
-      if (hasAllScreens) {
-        tl.add(() => {
+      // helper: epsilon to guard both label edges
+      const EPS = 0.0001;
+      // helper: setScreen binary state
+      const setScreen = (mode) => {
+        if (!screens) return;
+        if (mode === "blank") {
           gsap.set(screens.blank, { opacity: 1, display: "block" });
           gsap.set(screens.outgoing, { opacity: 0, display: "none" });
           gsap.set(screens.incoming, { opacity: 0, display: "none" });
-        }, "phoneAntennaIn+=0.22");
+        } else if (mode === "outgoing") {
+          gsap.set(screens.blank, { opacity: 0, display: "none" });
+          gsap.set(screens.outgoing, { opacity: 1, display: "block" });
+          gsap.set(screens.incoming, { opacity: 0, display: "none" });
+        } else if (mode === "incoming") {
+          gsap.set(screens.blank, { opacity: 0, display: "none" });
+          gsap.set(screens.outgoing, { opacity: 0, display: "none" });
+          gsap.set(screens.incoming, { opacity: 1, display: "block" });
+        }
+      };
+      // lock phone screen state at end of phoneAntennaIn (binary)
+      if (hasAllScreens) {
+        tl.add(() => setScreen("blank"), "phoneAntennaIn+=0");
       }
 
       tl.addLabel("idleAfterPhone", "+=0.08")
@@ -574,27 +589,32 @@
           "idleAfterPhone"
         );
 
+      // Accent helpers (topo + antenna colors)
+      const phoneTopoNodes = topoSVG.querySelectorAll("#topo-phone *");
+      const antennaFillNodes = antennaSVG.querySelectorAll("#antenna-fill, #antenna-fill *");
+      const setAccentFor = (mode) => {
+        if (mode === "blank") {
+          // base state
+          gsap.set(phoneTopoNodes, { attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } });
+          gsap.set(antennaFillNodes, { attr: { fill: COLORS.white } });
+        } else if (mode === "outgoing") {
+          gsap.set(phoneTopoNodes, { attr: { stroke: COLORS.orange, fill: COLORS.orange } });
+          gsap.set(antennaFillNodes, { attr: { fill: COLORS.white } });
+        } else if (mode === "incoming") {
+          gsap.set(phoneTopoNodes, { attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } });
+          gsap.set(antennaFillNodes, { attr: { fill: COLORS.orange } });
+        }
+      };
+
       tl.addLabel("outgoingPhase", "+=0.02")
         .to(
           [dotsLMount, dotsRMount],
           { opacity: 1, duration: 0.18 },
           "outgoingPhase"
         )
-        // instant screen swap to avoid blended frames during scrubs
-        .add(() => {
-          if (!hasAllScreens) return;
-          gsap.set(screens.blank, { opacity: 0, display: "none" });
-          gsap.set(screens.outgoing, { opacity: 1, display: "block" });
-          gsap.set(screens.incoming, { opacity: 0, display: "none" });
-        }, "outgoingPhase")
-        .to(
-          topoSVG.querySelectorAll("#topo-phone *"),
-          {
-            duration: 0.18,
-            attr: { stroke: COLORS.orange, fill: COLORS.orange },
-          },
-          "outgoingPhase"
-        );
+        // instant swaps at label edges to prevent blends while scrubbing
+        .add(() => { if (hasAllScreens) setScreen("blank"); }, `outgoingPhase-=${EPS}`)
+        .add(() => { if (hasAllScreens) setScreen("outgoing"); setAccentFor("outgoing"); }, "outgoingPhase+=0");
 
       tl.addLabel("idleAfterOutgoing", "+=0.00").to(
         {},
@@ -603,34 +623,9 @@
       );
 
       tl.addLabel("incomingPhase", "+=0.02")
-        // instant screen swap to avoid blended frames during scrubs
-        .add(() => {
-          if (!hasAllScreens) return;
-          gsap.set(screens.blank, { opacity: 0, display: "none" });
-          gsap.set(screens.outgoing, { opacity: 0, display: "none" });
-          gsap.set(screens.incoming, { opacity: 1, display: "block" });
-        }, "incomingPhase")
-        .to(
-          topoSVG.querySelectorAll("#topo-phone *"),
-          {
-            duration: 0.18,
-            attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase },
-          },
-          "incomingPhase"
-        )
-        .to(
-          topoSVG.querySelectorAll("#topo-antenna *"),
-          {
-            duration: 0.18,
-            attr: { stroke: COLORS.orange, fill: COLORS.orange },
-          },
-          "incomingPhase+=0.02"
-        )
-        .to(
-          antennaSVG.querySelectorAll("#antenna-fill, #antenna-fill *"),
-          { duration: 0.18, attr: { fill: COLORS.orange } },
-          "incomingPhase+=0.02"
-        );
+        // instant swaps at label edges to prevent blends while scrubbing
+        .add(() => { if (hasAllScreens) setScreen("outgoing"); }, `incomingPhase-=${EPS}`)
+        .add(() => { if (hasAllScreens) setScreen("incoming"); setAccentFor("incoming"); }, "incomingPhase+=0");
 
       tl.addLabel("tailIdle", "+=0.00").to(
         {},
@@ -674,6 +669,16 @@
           );
       }
 
+      // Accent micro timelines (topo + antenna) to sync with screen fades
+      const accentToOutgoing = gsap
+        .timeline({ paused: true })
+        .to(phoneTopoNodes, { duration: 0.15, ease: "power1.out", overwrite: "auto", attr: { stroke: COLORS.orange, fill: COLORS.orange } }, 0)
+        .to(antennaFillNodes, { duration: 0.15, ease: "none", overwrite: "auto", attr: { fill: COLORS.white } }, 0);
+      const accentToIncoming = gsap
+        .timeline({ paused: true })
+        .to(phoneTopoNodes, { duration: 0.15, ease: "power1.out", overwrite: "auto", attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } }, 0)
+        .to(antennaFillNodes, { duration: 0.15, ease: "power1.out", overwrite: "auto", attr: { fill: COLORS.orange } }, 0);
+
       // --- replace pre-pin with the final scrubbed trigger now that tl exists
       const st = ScrollTrigger.create({
         trigger: section,
@@ -703,24 +708,25 @@
       __teardowns.push(() => st.kill());
 
       // ScrollTriggers tied to timeline labels to play/reverse micro crossfades
-      if (hasAllScreens) {
-        const stOutXF = ScrollTrigger.create({
-          containerAnimation: tl,
-          start: "outgoingPhase",
-          end: "idleAfterOutgoing+=0.001",
-          onEnter: () => fadeToOutgoing && fadeToOutgoing.play(0),
-          onEnterBack: () => fadeToOutgoing && fadeToOutgoing.reverse(),
-        });
-        const stInXF = ScrollTrigger.create({
-          containerAnimation: tl,
-          start: "incomingPhase",
-          end: "tailIdle+=0.001",
-          onEnter: () => fadeToIncoming && fadeToIncoming.play(0),
-          onEnterBack: () => fadeToIncoming && fadeToIncoming.reverse(),
-        });
-        __teardowns.push(() => stOutXF.kill());
-        __teardowns.push(() => stInXF.kill());
-      }
+      // Label-edge micro triggers (correct edges)
+      // OUTGOING boundary
+      const stOutXF = ScrollTrigger.create({
+        containerAnimation: tl,
+        start: "outgoingPhase",
+        end: "outgoingPhase+=0.001",
+        onEnter: () => { if (hasAllScreens) fadeToOutgoing?.play(0); accentToOutgoing.play(0); },
+        onLeaveBack: () => { if (hasAllScreens) fadeToOutgoing?.reverse(); accentToOutgoing.reverse(); },
+      });
+      // INCOMING boundary
+      const stInXF = ScrollTrigger.create({
+        containerAnimation: tl,
+        start: "incomingPhase",
+        end: "incomingPhase+=0.001",
+        onEnter: () => { if (hasAllScreens) fadeToIncoming?.play(0); accentToIncoming.play(0); },
+        onLeaveBack: () => { if (hasAllScreens) fadeToIncoming?.reverse(); accentToIncoming.reverse(); },
+      });
+      __teardowns.push(() => stOutXF.kill());
+      __teardowns.push(() => stInXF.kill());
 
       // Surface S2 references for optional debug overlay (non-invasive)
       try {
