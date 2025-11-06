@@ -608,8 +608,15 @@
         .call(() => {
           show(screenIn);
         })
-        .to(screenOut, { opacity: 0, duration: 0.18 }, "incomingPhase")
-        .to(screenIn, { opacity: 1, duration: 0.18 }, "incomingPhase")
+        // Hard cut swap at label start (no crossfade)
+        .call(() => {
+          // ensure both are displayable so set() affects them
+          show(screenOut);
+          show(screenIn);
+          // hard cut: Outgoing OFF, Incoming ON
+          gsap.set(screenOut, { opacity: 0 });
+          gsap.set(screenIn, { opacity: 1 });
+        }, null, "incomingPhase")
         .to(
           topoSVG.querySelectorAll("#topo-phone *"),
           {
@@ -643,16 +650,17 @@
 
       // After incoming, we show the connected screen
       tl.addLabel("connectedPhase", "+=0.00")
-        // ensure both targets are displayable for opacity tweens
+        // Hard cut swap at label start (no crossfade)
         .call(() => {
+          // ensure both targets are displayable
           show(screenConn);
           show(screenIn);
-          show(screenOut);
-        })
-        // fade Incoming to 0, Connected to 1, and make sure Outgoing is not visible
-        .to(screenIn, { opacity: 0, duration: 0.18 }, "connectedPhase")
-        .to(screenConn, { opacity: 1, duration: 0.18 }, "connectedPhase")
-        .to(screenOut, { opacity: 0, duration: 0.18 }, "connectedPhase");
+          show(screenOut); // safe: we'll clamp opacities next
+          // hard cut: Incoming OFF, Connected ON; Outgoing OFF
+          gsap.set(screenIn, { opacity: 0 });
+          gsap.set(screenConn, { opacity: 1 });
+          gsap.set(screenOut, { opacity: 0 });
+        }, null, "connectedPhase");
 
       // Final tail hold
       tl.addLabel("connectedIdle", "+=0.00").to(
@@ -670,6 +678,11 @@
         end: () => "+=" + pinLenPx(),
         pin: true,
         scrub: 1,
+        snap: {
+          snapTo: "labelsDirectional",
+          duration: 0.15,
+          ease: "power1.out",
+        },
         animation: tl,
         anticipatePin: 1,
         onUpdate(self) {
