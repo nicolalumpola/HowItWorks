@@ -654,6 +654,11 @@
       });
       __teardowns.push(() => st.kill());
 
+      // expose timeline + scrolltrigger to external debug tools
+      window.__S2_HOOK__ = { tl, st };
+      window.dispatchEvent(new CustomEvent("s2:ready", { detail: { tl, st } }));
+      __teardowns.push(() => { if (window.__S2_HOOK__) delete window.__S2_HOOK__; });
+
       // mark ready → release inputs, keep scroll at section start
       assetsReady = true;
       disableInputLock();

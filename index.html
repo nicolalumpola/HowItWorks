@@ -32,5 +32,11 @@
     <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/ScrollTrigger.min.js"></script>
 
     <script type="module" src="./main.js"></script>
+    <!-- Optional: load S2 HUD when ?hud=1 is present -->
+    <script type="module">
+      if (new URLSearchParams(location.search).get("hud") === "1") {
+        import("./debug-s2.js").then((m) => m.installHUD?.()).catch(console.warn);
+      }
+    </script>
   </body>
 </html>
