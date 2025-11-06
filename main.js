@@ -464,6 +464,18 @@
         }
         return null;
       }
+      function nodesIn(root, selectors) {
+        for (const s of selectors) {
+          try {
+            const list = root.querySelectorAll(s);
+            if (list && list.length) return list;
+          } catch {}
+        }
+        return [];
+      }
+      function warnMissing(name) {
+        try { console.warn(`S2: missing ${name}`); } catch {}
+      }
       function resolveScreensIn(root) {
         // exact IDs first
         let blank = pickIn(root, ["#Blank-Screen", "#Blank", "#Screen-Blank", "#blank-screen"]);
@@ -574,10 +586,10 @@
       };
       // lock initial phone state at phoneAntennaIn: arrive already on OUTGOING
       if (hasAllScreens) {
-        tl.add(() => { setScreen("outgoing"); setAccentFor("outgoing"); }, "phoneAntennaIn+=0");
+        tl.add(() => { setScreen("outgoing"); setAccentFor("outgoing"); leftStream?.setDirection(1); rightStream?.setDirection(1); }, "phoneAntennaIn+=0");
       } else {
         // still ensure antenna/phone topo base
-        tl.add(() => { setAccentFor("outgoing"); }, "phoneAntennaIn+=0");
+        tl.add(() => { setAccentFor("outgoing"); leftStream?.setDirection(1); rightStream?.setDirection(1); }, "phoneAntennaIn+=0");
       }
       // Dot streams fade in with phone/antenna entrance; reverse out before this beat
       tl.to([dotsLMount, dotsRMount], { opacity: 1, duration: 0.25 }, "phoneAntennaIn");
@@ -589,19 +601,41 @@
           "idleAfterPhone"
         );
 
-      // Accent helpers (topo + antenna colors)
-      const phoneTopoNodes = topoSVG.querySelectorAll("#topo-phone *");
-      const antennaFillNodes = antennaSVG.querySelectorAll("#antenna-fill, #antenna-fill *");
+      // Accent helpers (topo + antenna colors) with robust resolution
+      const phoneTopoPhoneNodes = nodesIn(topoSVG, [
+        "#Phone-Topo *",
+        "#PhoneTopo *",
+        "#Phone_Topo *",
+        "#topo-phone *",
+      ]);
+      if (!phoneTopoPhoneNodes.length) warnMissing("phoneTopoUnderPhone");
+      const phoneTopoAntennaNodes = nodesIn(topoSVG, [
+        "#Antenna-Topo *",
+        "#AntennaTopo *",
+        "#Antenna_Topo *",
+        "#topo-antenna *",
+      ]);
+      if (!phoneTopoAntennaNodes.length) warnMissing("phoneTopoUnderAntenna");
+      const antennaFillNodes = nodesIn(antennaSVG, [
+        "#Antenna-Fill, #Antenna-Fill *",
+        "#Antenna, #Antenna *",
+        "#AntennaFill, #AntennaFill *",
+        "#antenna-fill, #antenna-fill *",
+      ]);
+      if (!antennaFillNodes.length) warnMissing("antennaFill");
       const setAccentFor = (mode) => {
         if (mode === "blank") {
           // base state
-          gsap.set(phoneTopoNodes, { attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } });
+          gsap.set(phoneTopoPhoneNodes, { attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } });
+          gsap.set(phoneTopoAntennaNodes, { attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } });
           gsap.set(antennaFillNodes, { attr: { fill: COLORS.white } });
         } else if (mode === "outgoing") {
-          gsap.set(phoneTopoNodes, { attr: { stroke: COLORS.orange, fill: COLORS.orange } });
+          gsap.set(phoneTopoPhoneNodes, { attr: { stroke: COLORS.orange, fill: COLORS.orange } });
+          gsap.set(phoneTopoAntennaNodes, { attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } });
           gsap.set(antennaFillNodes, { attr: { fill: COLORS.white } });
         } else if (mode === "incoming") {
-          gsap.set(phoneTopoNodes, { attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } });
+          gsap.set(phoneTopoPhoneNodes, { attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } });
+          gsap.set(phoneTopoAntennaNodes, { attr: { stroke: COLORS.orange, fill: COLORS.orange } });
           gsap.set(antennaFillNodes, { attr: { fill: COLORS.orange } });
         }
       };
@@ -642,11 +676,13 @@
       // Accent micro timelines (topo + antenna) to sync with screen fades
       const accentToOutgoing = gsap
         .timeline({ paused: true })
-        .to(phoneTopoNodes, { duration: 0.15, ease: "power1.out", overwrite: "auto", attr: { stroke: COLORS.orange, fill: COLORS.orange } }, 0)
+        .to(phoneTopoPhoneNodes, { duration: 0.15, ease: "power1.out", overwrite: "auto", attr: { stroke: COLORS.orange, fill: COLORS.orange } }, 0)
+        .to(phoneTopoAntennaNodes, { duration: 0.15, ease: "power1.out", overwrite: "auto", attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } }, 0)
         .to(antennaFillNodes, { duration: 0.15, ease: "none", overwrite: "auto", attr: { fill: COLORS.white } }, 0);
       const accentToIncoming = gsap
         .timeline({ paused: true })
-        .to(phoneTopoNodes, { duration: 0.15, ease: "power1.out", overwrite: "auto", attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } }, 0)
+        .to(phoneTopoPhoneNodes, { duration: 0.15, ease: "power1.out", overwrite: "auto", attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } }, 0)
+        .to(phoneTopoAntennaNodes, { duration: 0.15, ease: "power1.out", overwrite: "auto", attr: { stroke: COLORS.orange, fill: COLORS.orange } }, 0)
         .to(antennaFillNodes, { duration: 0.15, ease: "power1.out", overwrite: "auto", attr: { fill: COLORS.orange } }, 0);
 
       // --- replace pre-pin with the final scrubbed trigger now that tl exists
@@ -685,15 +721,15 @@
         start: "outgoingPhase",
         end: "outgoingPhase+=0.001",
         onEnter: () => { /* no fade needed; already on outgoing */ },
-        onLeaveBack: () => { setScreen("outgoing"); accentToOutgoing.play(0); },
+        onLeaveBack: () => { setScreen("outgoing"); accentToOutgoing.play(0); leftStream?.setDirection(1); rightStream?.setDirection(1); },
       });
       // INCOMING boundary
       const stInXF = ScrollTrigger.create({
         containerAnimation: tl,
         start: "incomingPhase",
         end: "incomingPhase+=0.001",
-        onEnter: () => { if (hasAllScreens) fadeToIncoming?.play(0); accentToIncoming.play(0); },
-        onLeaveBack: () => { if (hasAllScreens) fadeToIncoming?.reverse(); accentToOutgoing.play(0); },
+        onEnter: () => { if (hasAllScreens) fadeToIncoming?.play(0); accentToIncoming.play(0); leftStream?.setDirection(-1); rightStream?.setDirection(-1); },
+        onLeaveBack: () => { if (hasAllScreens) fadeToIncoming?.reverse(); accentToOutgoing.play(0); leftStream?.setDirection(1); rightStream?.setDirection(1); },
       });
       __teardowns.push(() => stOutXF.kill());
       __teardowns.push(() => stInXF.kill());
