@@ -617,27 +617,26 @@
           gsap.set(screenOut, { opacity: 0 });
           gsap.set(screenIn, { opacity: 1 });
         }, null, "incomingPhase")
-        .to(
+        .set(
           topoSVG.querySelectorAll("#topo-phone *"),
-          {
-            duration: 0.18,
-            attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase },
-          },
+          { attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } },
           "incomingPhase"
         )
-        .to(
+        .set(
           topoSVG.querySelectorAll("#topo-antenna *"),
-          {
-            duration: 0.18,
-            attr: { stroke: COLORS.orange, fill: COLORS.orange },
-          },
-          "incomingPhase+=0.02"
+          { attr: { stroke: COLORS.orange, fill: COLORS.orange } },
+          "incomingPhase"
         )
-        .to(
+        .set(
           antennaSVG.querySelectorAll("#antenna-fill, #antenna-fill *"),
-          { duration: 0.18, attr: { fill: COLORS.orange } },
-          "incomingPhase+=0.02"
-        );
+          { attr: { fill: COLORS.orange } },
+          "incomingPhase"
+        )
+        // Dots: reverse direction instantly at incomingPhase
+        .call(() => {
+          leftStream?.setDirection(-1);
+          rightStream?.setDirection(-1);
+        }, null, "incomingPhase");
 
       // mark end of incoming phase for ScrollTrigger direction logic
       tl.addLabel("incomingPhaseEnd");
@@ -680,22 +679,8 @@
         scrub: 1,
         animation: tl,
         anticipatePin: 1,
-        onUpdate(self) {
-          // reverse particle direction after incomingAnimation fully completes
-          const p = self.progress;
-          const dotsOnStart = (tl.labels.phoneAntennaIn ?? 0) / totalDur;
-          const incomingEnd = ((tl.labels.incomingPhaseEnd ?? tl.labels.incomingPhase) ?? totalDur) / totalDur;
-
-          if (p >= incomingEnd) {
-            leftStream?.setDirection(-1);
-            rightStream?.setDirection(-1);
-          } else if (p >= dotsOnStart) {
-            leftStream?.setDirection(1);
-            rightStream?.setDirection(1);
-          } else {
-            leftStream?.setDirection(1);
-            rightStream?.setDirection(1);
-          }
+        onUpdate() {
+          // Dot direction changes are handled at labels.
         },
       });
       __teardowns.push(() => st.kill());
