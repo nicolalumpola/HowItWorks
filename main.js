@@ -32,7 +32,7 @@
   // timing beats
   const IDLE_BETWEEN_PHONE_AND_OUTGOING = 0.44;
   const IDLE_BETWEEN_OUTGOING_AND_INCOMING = IDLE_BETWEEN_PHONE_AND_OUTGOING;
-  const TAIL_IDLE_AFTER_ALL = 0.7;
+  const TAIL_IDLE_AFTER_ALL = IDLE_BETWEEN_PHONE_AND_OUTGOING; // match idleAfterPhone length
 
   const DESIGN = {
     width: 1280,
@@ -498,13 +498,20 @@
         "#Screen-Connecter",
         "[id='Screen-Connecter']",
       ]);
+      if (!screenConn)
+        console.warn(
+          "[S2] Connected screen group not found (expected id 'Screen-Connected')."
+        );
       [screenBlack, screenOut, screenIn, screenConn].forEach(forceShow);
       // Blank is never shown; keep it fully transparent throughout
       gsap.set(screenBlack, { opacity: 0 });
       hide(screenBlack);
       // Outgoing is our default/initial phone screen
       show(screenOut);
+      gsap.set(screenOut, { opacity: 1 });
+      gsap.set(screenIn, { opacity: 0 });
       hide(screenIn);
+      gsap.set(screenConn, { opacity: 0 });
       hide(screenConn);
 
       // antenna fill baseline
@@ -636,8 +643,16 @@
 
       // After incoming, we show the connected screen
       tl.addLabel("connectedPhase", "+=0.00")
+        // ensure both targets are displayable for opacity tweens
+        .call(() => {
+          show(screenConn);
+          show(screenIn);
+          show(screenOut);
+        })
+        // fade Incoming to 0, Connected to 1, and make sure Outgoing is not visible
         .to(screenIn, { opacity: 0, duration: 0.18 }, "connectedPhase")
-        .to(screenConn, { opacity: 1, duration: 0.18 }, "connectedPhase");
+        .to(screenConn, { opacity: 1, duration: 0.18 }, "connectedPhase")
+        .to(screenOut, { opacity: 0, duration: 0.18 }, "connectedPhase");
 
       // Final tail hold
       tl.addLabel("connectedIdle", "+=0.00").to(
