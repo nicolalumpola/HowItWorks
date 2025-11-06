@@ -454,51 +454,35 @@
       window.addEventListener("resize", onResize, { passive: true });
       __teardowns.push(() => window.removeEventListener("resize", onResize));
 
-      // ---- robust phone screen resolution + deferred init
-      function dq(sel) {
-        try {
-          return document.querySelector(sel);
-        } catch {}
-        return null;
-      }
-      function pick(cands) {
+      // ---- resilient phone screen resolution + safe base state
+      function pickIn(root, cands) {
         for (const s of cands) {
-          const el = dq(s);
-          if (el) return el;
+          try {
+            const el = root.querySelector(s);
+            if (el) return el;
+          } catch {}
         }
         return null;
       }
-      const SCREEN_CANDS = {
-        blank: ["#Blank-Screen", "#Blank", "#Screen-Blank", "#blank-screen"],
-        outgoing: ["#Outgoing-Screen", "#Outgoing", "#Screen-Outgoing"],
-        incoming: ["#Incoming-Screen", "#Incoming", "#Screen-Incoming"],
-      };
-      function resolveScreens() {
-        return {
-          blank: pick(SCREEN_CANDS.blank),
-          outgoing: pick(SCREEN_CANDS.outgoing),
-          incoming: pick(SCREEN_CANDS.incoming),
-        };
+      function resolveScreensIn(root) {
+        // exact IDs first
+        let blank = pickIn(root, ["#Blank-Screen", "#Blank", "#Screen-Blank", "#blank-screen"]);
+        let outgoing = pickIn(root, ["#Outgoing-Screen", "#Outgoing", "#Screen-Outgoing"]);
+        let incoming = pickIn(root, ["#Incoming-Screen", "#Incoming", "#Screen-Incoming"]);
+        // fuzzy fallbacks if missing
+        if (!blank) blank = pickIn(root, ['[id*="blank" i][id*="screen" i]']);
+        if (!outgoing) outgoing = pickIn(root, ['[id*="outgoing" i][id*="screen" i]']);
+        if (!incoming) incoming = pickIn(root, ['[id*="incoming" i][id*="screen" i]']);
+        return { blank, outgoing, incoming };
       }
-      async function waitForScreens(timeoutMs = 3000, intervalMs = 50) {
-        const t0 = performance.now();
-        return new Promise((resolve) => {
-          const tick = () => {
-            const s = resolveScreens();
-            if (s.blank && s.outgoing && s.incoming) return resolve(s);
-            if (performance.now() - t0 >= timeoutMs) return resolve(null);
-            setTimeout(tick, intervalMs);
-          };
-          tick();
-        });
-      }
-      const screens = await waitForScreens();
-      if (!screens) {
-        console.warn("[S2] phone screens not found — skipping screen fades.");
-      } else {
-        // force safe initial state
-        gsap.set([screens.outgoing, screens.incoming], { opacity: 0, display: "none" });
-        gsap.set(screens.blank, { opacity: 1, display: "block" });
+      const screens = resolveScreensIn(phoneSVG);
+      // Always enforce safe base (whatever is present)
+      if (screens.blank) gsap.set(screens.blank, { opacity: 1, display: "block" });
+      if (screens.outgoing) gsap.set(screens.outgoing, { opacity: 0, display: "none" });
+      if (screens.incoming) gsap.set(screens.incoming, { opacity: 0, display: "none" });
+      const hasAllScreens = !!(screens.blank && screens.outgoing && screens.incoming);
+      if (!hasAllScreens) {
+        console.warn("S2: Missing screen groups — holding on Blank only.");
       }
 
       // antenna fill baseline
@@ -570,7 +554,7 @@
         "phoneAntennaIn"
       );
       // lock phone screen state at end of phoneAntennaIn
-      if (screens) {
+      if (hasAllScreens) {
         tl.add(() => {
           gsap.set(screens.blank, { opacity: 1, display: "block" });
           gsap.set(screens.outgoing, { opacity: 0, display: "none" });
@@ -598,7 +582,7 @@
         )
         // instant screen swap to avoid blended frames during scrubs
         .add(() => {
-          if (!screens) return;
+          if (!hasAllScreens) return;
           gsap.set(screens.blank, { opacity: 0, display: "none" });
           gsap.set(screens.outgoing, { opacity: 1, display: "block" });
           gsap.set(screens.incoming, { opacity: 0, display: "none" });
@@ -621,7 +605,7 @@
       tl.addLabel("incomingPhase", "+=0.02")
         // instant screen swap to avoid blended frames during scrubs
         .add(() => {
-          if (!screens) return;
+          if (!hasAllScreens) return;
           gsap.set(screens.blank, { opacity: 0, display: "none" });
           gsap.set(screens.outgoing, { opacity: 0, display: "none" });
           gsap.set(screens.incoming, { opacity: 1, display: "block" });
@@ -658,7 +642,7 @@
 
       // --- micro crossfade timelines (paused) that play/reverse when crossing labels
       let fadeToOutgoing, fadeToIncoming;
-      if (screens) {
+      if (hasAllScreens) {
         fadeToOutgoing = gsap
           .timeline({ paused: true })
           .fromTo(
@@ -719,7 +703,7 @@
       __teardowns.push(() => st.kill());
 
       // ScrollTriggers tied to timeline labels to play/reverse micro crossfades
-      if (screens) {
+      if (hasAllScreens) {
         const stOutXF = ScrollTrigger.create({
           containerAnimation: tl,
           start: "outgoingPhase",
