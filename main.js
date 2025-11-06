@@ -572,17 +572,17 @@
           gsap.set(screens.incoming, { opacity: 1, display: "block" });
         }
       };
-      // lock phone screen state at end of phoneAntennaIn (binary)
+      // lock initial phone state at phoneAntennaIn: arrive already on OUTGOING
       if (hasAllScreens) {
-        tl.add(() => setScreen("blank"), "phoneAntennaIn+=0");
+        tl.add(() => { setScreen("outgoing"); setAccentFor("outgoing"); }, "phoneAntennaIn+=0");
+      } else {
+        // still ensure antenna/phone topo base
+        tl.add(() => { setAccentFor("outgoing"); }, "phoneAntennaIn+=0");
       }
+      // Dot streams fade in with phone/antenna entrance; reverse out before this beat
+      tl.to([dotsLMount, dotsRMount], { opacity: 1, duration: 0.25 }, "phoneAntennaIn");
 
       tl.addLabel("idleAfterPhone", "+=0.08")
-        .to(
-          [dotsLMount, dotsRMount],
-          { opacity: 0, duration: 0.1 },
-          "idleAfterPhone"
-        )
         .to(
           {},
           { duration: IDLE_BETWEEN_PHONE_AND_OUTGOING },
@@ -607,14 +607,9 @@
       };
 
       tl.addLabel("outgoingPhase", "+=0.02")
-        .to(
-          [dotsLMount, dotsRMount],
-          { opacity: 1, duration: 0.18 },
-          "outgoingPhase"
-        )
-        // instant swaps at label edges to prevent blends while scrubbing
-        .add(() => { if (hasAllScreens) setScreen("blank"); }, `outgoingPhase-=${EPS}`)
-        .add(() => { if (hasAllScreens) setScreen("outgoing"); setAccentFor("outgoing"); }, "outgoingPhase+=0");
+        // instant screen guards around label edge (no blends during scrub)
+        .add(() => { if (hasAllScreens) setScreen("outgoing"); }, `outgoingPhase-=${EPS}`)
+        .add(() => { if (hasAllScreens) setScreen("outgoing"); }, "outgoingPhase+=0");
 
       tl.addLabel("idleAfterOutgoing", "+=0.00").to(
         {},
@@ -623,9 +618,9 @@
       );
 
       tl.addLabel("incomingPhase", "+=0.02")
-        // instant swaps at label edges to prevent blends while scrubbing
+        // instant screen guards around label edge (no blends during scrub)
         .add(() => { if (hasAllScreens) setScreen("outgoing"); }, `incomingPhase-=${EPS}`)
-        .add(() => { if (hasAllScreens) setScreen("incoming"); setAccentFor("incoming"); }, "incomingPhase+=0");
+        .add(() => { if (hasAllScreens) setScreen("incoming"); }, "incomingPhase+=0");
 
       tl.addLabel("tailIdle", "+=0.00").to(
         {},
@@ -636,37 +631,12 @@
       const totalDur = tl.duration();
 
       // --- micro crossfade timelines (paused) that play/reverse when crossing labels
-      let fadeToOutgoing, fadeToIncoming;
+      let fadeToIncoming;
       if (hasAllScreens) {
-        fadeToOutgoing = gsap
-          .timeline({ paused: true })
-          .fromTo(
-            screens.blank,
-            { opacity: 1 },
-            { opacity: 0, duration: 0.15, ease: "power1.out", overwrite: "auto" },
-            0
-          )
-          .fromTo(
-            screens.outgoing,
-            { opacity: 0 },
-            { opacity: 1, duration: 0.15, ease: "power1.out", overwrite: "auto" },
-            0
-          );
-
         fadeToIncoming = gsap
           .timeline({ paused: true })
-          .fromTo(
-            screens.outgoing,
-            { opacity: 1 },
-            { opacity: 0, duration: 0.15, ease: "power1.out", overwrite: "auto" },
-            0
-          )
-          .fromTo(
-            screens.incoming,
-            { opacity: 0 },
-            { opacity: 1, duration: 0.15, ease: "power1.out", overwrite: "auto" },
-            0
-          );
+          .to(screens.outgoing, { opacity: 0, duration: 0.15, ease: "power1.out", overwrite: "auto" }, 0)
+          .to(screens.incoming, { opacity: 1, duration: 0.15, ease: "power1.out", overwrite: "auto" }, 0);
       }
 
       // Accent micro timelines (topo + antenna) to sync with screen fades
@@ -714,8 +684,8 @@
         containerAnimation: tl,
         start: "outgoingPhase",
         end: "outgoingPhase+=0.001",
-        onEnter: () => { if (hasAllScreens) fadeToOutgoing?.play(0); accentToOutgoing.play(0); },
-        onLeaveBack: () => { if (hasAllScreens) fadeToOutgoing?.reverse(); accentToOutgoing.reverse(); },
+        onEnter: () => { /* no fade needed; already on outgoing */ },
+        onLeaveBack: () => { setScreen("outgoing"); accentToOutgoing.play(0); },
       });
       // INCOMING boundary
       const stInXF = ScrollTrigger.create({
@@ -723,7 +693,7 @@
         start: "incomingPhase",
         end: "incomingPhase+=0.001",
         onEnter: () => { if (hasAllScreens) fadeToIncoming?.play(0); accentToIncoming.play(0); },
-        onLeaveBack: () => { if (hasAllScreens) fadeToIncoming?.reverse(); accentToIncoming.reverse(); },
+        onLeaveBack: () => { if (hasAllScreens) fadeToIncoming?.reverse(); accentToOutgoing.play(0); },
       });
       __teardowns.push(() => stOutXF.kill());
       __teardowns.push(() => stInXF.kill());
