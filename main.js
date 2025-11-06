@@ -502,58 +502,6 @@
         .querySelectorAll("#antenna-fill, #antenna-fill *")
         .forEach((n) => n.setAttribute("fill", COLORS.white));
 
-      // Accent targets (resolve BEFORE any timeline uses them)
-      function nodesIn(root, selectors) {
-        for (const s of selectors) {
-          try {
-            const list = root.querySelectorAll(s);
-            if (list && list.length) return list;
-          } catch {}
-        }
-        return [];
-      }
-      function warnMissing(name) {
-        try { console.warn(`S2: missing ${name}`); } catch {}
-      }
-      const phoneTopoPhoneNodes = nodesIn(topoSVG, [
-        "#Phone-Topo *",
-        "#PhoneTopo *",
-        "#Phone_Topo *",
-        "#topo-phone *",
-      ]);
-      if (!phoneTopoPhoneNodes.length) warnMissing("phoneTopoUnderPhone");
-      const phoneTopoAntennaNodes = nodesIn(topoSVG, [
-        "#Antenna-Topo *",
-        "#AntennaTopo *",
-        "#Antenna_Topo *",
-        "#topo-antenna *",
-      ]);
-      if (!phoneTopoAntennaNodes.length) warnMissing("phoneTopoUnderAntenna");
-      const antennaFillNodes = nodesIn(antennaSVG, [
-        "#Antenna-Fill, #Antenna-Fill *",
-        "#Antenna, #Antenna *",
-        "#AntennaFill, #AntennaFill *",
-        "#antenna-fill, #antenna-fill *",
-      ]);
-      if (!antennaFillNodes.length) warnMissing("antennaFill");
-
-      // Helper for accents (define BEFORE tl.add uses it)
-      const setAccentFor = (mode) => {
-        if (mode === "blank") {
-          gsap.set(phoneTopoPhoneNodes, { attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } });
-          gsap.set(phoneTopoAntennaNodes, { attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } });
-          gsap.set(antennaFillNodes, { attr: { fill: COLORS.white } });
-        } else if (mode === "outgoing") {
-          gsap.set(phoneTopoPhoneNodes, { attr: { stroke: COLORS.orange, fill: COLORS.orange } });
-          gsap.set(phoneTopoAntennaNodes, { attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } });
-          gsap.set(antennaFillNodes, { attr: { fill: COLORS.white } });
-        } else if (mode === "incoming") {
-          gsap.set(phoneTopoPhoneNodes, { attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } });
-          gsap.set(phoneTopoAntennaNodes, { attr: { stroke: COLORS.orange, fill: COLORS.orange } });
-          gsap.set(antennaFillNodes, { attr: { fill: COLORS.orange } });
-        }
-      };
-
       // particles
       const leftStream = createPathStream(
         dotsLSVG,
@@ -663,6 +611,44 @@
         );
       }
 
+      // Accent helpers (topo + antenna colors) with robust resolution
+      const phoneTopoPhoneNodes = nodesIn(topoSVG, [
+        "#Phone-Topo *",
+        "#PhoneTopo *",
+        "#Phone_Topo *",
+        "#topo-phone *",
+      ]);
+      if (!phoneTopoPhoneNodes.length) warnMissing("phoneTopoUnderPhone");
+      const phoneTopoAntennaNodes = nodesIn(topoSVG, [
+        "#Antenna-Topo *",
+        "#AntennaTopo *",
+        "#Antenna_Topo *",
+        "#topo-antenna *",
+      ]);
+      if (!phoneTopoAntennaNodes.length) warnMissing("phoneTopoUnderAntenna");
+      const antennaFillNodes = nodesIn(antennaSVG, [
+        "#Antenna-Fill, #Antenna-Fill *",
+        "#Antenna, #Antenna *",
+        "#AntennaFill, #AntennaFill *",
+        "#antenna-fill, #antenna-fill *",
+      ]);
+      if (!antennaFillNodes.length) warnMissing("antennaFill");
+      const setAccentFor = (mode) => {
+        if (mode === "blank") {
+          // base state
+          gsap.set(phoneTopoPhoneNodes, { attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } });
+          gsap.set(phoneTopoAntennaNodes, { attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } });
+          gsap.set(antennaFillNodes, { attr: { fill: COLORS.white } });
+        } else if (mode === "outgoing") {
+          gsap.set(phoneTopoPhoneNodes, { attr: { stroke: COLORS.orange, fill: COLORS.orange } });
+          gsap.set(phoneTopoAntennaNodes, { attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } });
+          gsap.set(antennaFillNodes, { attr: { fill: COLORS.white } });
+        } else if (mode === "incoming") {
+          gsap.set(phoneTopoPhoneNodes, { attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } });
+          gsap.set(phoneTopoAntennaNodes, { attr: { stroke: COLORS.orange, fill: COLORS.orange } });
+          gsap.set(antennaFillNodes, { attr: { fill: COLORS.orange } });
+        }
+      };
 
       tl.addLabel("outgoingPhase", "+=0.02")
         // Guard: reassert full OUTGOING state and L→R at/before label
