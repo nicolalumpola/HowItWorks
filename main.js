@@ -492,9 +492,12 @@
         "[id='Incoming-Screen']",
       ]);
       [screenBlack, screenOut, screenIn].forEach(forceShow);
-      hide(screenOut);
+      // Blank is never shown; keep it fully transparent throughout
+      gsap.set(screenBlack, { opacity: 0 });
+      hide(screenBlack);
+      // Outgoing is our default/initial phone screen
+      show(screenOut);
       hide(screenIn);
-      show(screenBlack);
 
       // antenna fill baseline
       antennaSVG
@@ -539,9 +542,10 @@
       gsap.set([dotsLMount, dotsRMount], { opacity: 0 });
 
       // baselines
+      // Satellite is already visible/in place from the start
       gsap.set(satMount, {
-        opacity: 0,
-        y: DESIGN.satellite.rise,
+        opacity: 1,
+        y: 0,
         transformOrigin: "50% 100%",
       });
       gsap.set([phoneMount, antennaMount], {
@@ -553,15 +557,26 @@
       // timeline (relative sequencing + labels)
       const tl = gsap.timeline({ defaults: { ease: "none" } });
 
-      tl.addLabel("satelliteIn").to(
-        satMount,
-        { opacity: 1, y: 0, duration: 0.18 },
-        "satelliteIn"
-      );
+      
 
       tl.addLabel("phoneAntennaIn", "+=0.22").to(
         [phoneMount, antennaMount],
         { opacity: 1, scale: 1, duration: 0.22, stagger: 0.03 },
+        "phoneAntennaIn"
+      );
+      // Fade dots on during the same beat
+      tl.to(
+        [dotsLMount, dotsRMount],
+        { opacity: 1, duration: 0.18 },
+        "phoneAntennaIn"
+      );
+      // Topo-phone glows orange here (moved from outgoingPhase)
+      tl.to(
+        topoSVG.querySelectorAll("#topo-phone *"),
+        {
+          duration: 0.18,
+          attr: { stroke: COLORS.orange, fill: COLORS.orange },
+        },
         "phoneAntennaIn"
       );
 
@@ -577,31 +592,7 @@
           "idleAfterPhone"
         );
 
-      tl.addLabel("outgoingPhase", "+=0.02")
-        .call(() => {
-          show(screenOut);
-        })
-        .to(
-          [dotsLMount, dotsRMount],
-          { opacity: 1, duration: 0.18 },
-          "outgoingPhase"
-        )
-        .to(screenBlack, { opacity: 0, duration: 0.18 }, "outgoingPhase")
-        .to(screenOut, { opacity: 1, duration: 0.18 }, "outgoingPhase")
-        .to(
-          topoSVG.querySelectorAll("#topo-phone *"),
-          {
-            duration: 0.18,
-            attr: { stroke: COLORS.orange, fill: COLORS.orange },
-          },
-          "outgoingPhase"
-        );
-
-      tl.addLabel("idleAfterOutgoing", "+=0.00").to(
-        {},
-        { duration: IDLE_BETWEEN_OUTGOING_AND_INCOMING },
-        "idleAfterOutgoing"
-      );
+      
 
       tl.addLabel("incomingPhase", "+=0.02")
         .call(() => {
@@ -651,8 +642,8 @@
         onUpdate(self) {
           // reverse particle direction between phases
           const p = self.progress;
-          const outStart = (tl.labels.outgoingPhase ?? 0.96) / totalDur;
-          const inStart = (tl.labels.incomingPhase ?? 1.54) / totalDur;
+          const outStart = (tl.labels.phoneAntennaIn ?? 0) / totalDur; // dots start here now
+          const inStart = (tl.labels.incomingPhase ?? totalDur) / totalDur;
           if (p >= inStart) {
             leftStream?.setDirection(-1);
             rightStream?.setDirection(-1);
