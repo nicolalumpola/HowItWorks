@@ -1,0 +1,64 @@
+:root {
+  --bg: #1B1B1B;
+  --text: #e5e7eb;
+}
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+}
+
+#anim-root {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden; /* while pinned */
+}
+
+#topo-wrap,
+#phone-wrap,
+#antenna-wrap,
+#dot-streams {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* simple layout: phone left, antenna right, topo fills */
+#topo-wrap svg { width: 100%; height: 100%; }
+#phone-wrap { display: flex; align-items: flex-end; justify-content: flex-start; padding-left: 8vw; padding-bottom: 10vh; }
+#phone-wrap svg { width: 16vw; height: auto; }
+
+#antenna-wrap { display: flex; align-items: flex-end; justify-content: flex-end; padding-right: 10vw; padding-bottom: 12vh; }
+#antenna-wrap svg { width: 20vw; height: auto; }
+
+#dot-streams { display: block; }
+#dot-streams .dot {
+  position: absolute;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #F5A145;
+  opacity: 0.0;
+  filter: drop-shadow(0 0 6px rgba(245,161,69,0.9));
+}
+
+/* Debug overlay */
+#s2-debug {
+  position: fixed;
+  top: 8px; right: 8px;
+  background: rgba(0,0,0,0.6);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font: 12px/1.3 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: #e5e7eb;
+  z-index: 99999;
+}
+#s2-debug .row { display:flex; gap:6px; justify-content: space-between; }
+#s2-debug .key { color:#9ca3af; }
+#s2-debug .val { color:#f9fafb; }
+#s2-debug .scrub { margin-top:6px; width: 260px; height: 8px; background: rgba(255,255,255,0.15); border-radius: 4px; position: relative; }
+#s2-debug .playhead { position:absolute; top:-2px; width:2px; height: 12px; background:#fff; left:0; }
+
