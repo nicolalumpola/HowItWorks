@@ -454,34 +454,52 @@
       window.addEventListener("resize", onResize, { passive: true });
       __teardowns.push(() => window.removeEventListener("resize", onResize));
 
-      // phone screens
-      const q = (names) => {
-        for (const n of names) {
-          const el = phoneSVG.querySelector(n);
+      // ---- robust phone screen resolution + deferred init
+      function dq(sel) {
+        try {
+          return document.querySelector(sel);
+        } catch {}
+        return null;
+      }
+      function pick(cands) {
+        for (const s of cands) {
+          const el = dq(s);
           if (el) return el;
         }
         return null;
+      }
+      const SCREEN_CANDS = {
+        blank: ["#Blank-Screen", "#Blank", "#Screen-Blank", "#blank-screen"],
+        outgoing: ["#Outgoing-Screen", "#Outgoing", "#Screen-Outgoing"],
+        incoming: ["#Incoming-Screen", "#Incoming", "#Screen-Incoming"],
       };
-      const screenBlack = q([
-        "#Blank-Screen",
-        "#blank-screen",
-        "#Blank",
-        "[id='Blank-Screen']",
-      ]);
-      const screenOut = q([
-        "#Outgoing-Screen",
-        "#Screen-Outgoing",
-        "[id='Outgoing-Screen']",
-      ]);
-      const screenIn = q([
-        "#Incoming-Screen",
-        "#Screen-Incoming",
-        "[id='Incoming-Screen']",
-      ]);
-      [screenBlack, screenOut, screenIn].forEach(forceShow);
-      hide(screenOut);
-      hide(screenIn);
-      show(screenBlack);
+      function resolveScreens() {
+        return {
+          blank: pick(SCREEN_CANDS.blank),
+          outgoing: pick(SCREEN_CANDS.outgoing),
+          incoming: pick(SCREEN_CANDS.incoming),
+        };
+      }
+      async function waitForScreens(timeoutMs = 3000, intervalMs = 50) {
+        const t0 = performance.now();
+        return new Promise((resolve) => {
+          const tick = () => {
+            const s = resolveScreens();
+            if (s.blank && s.outgoing && s.incoming) return resolve(s);
+            if (performance.now() - t0 >= timeoutMs) return resolve(null);
+            setTimeout(tick, intervalMs);
+          };
+          tick();
+        });
+      }
+      const screens = await waitForScreens();
+      if (!screens) {
+        console.warn("[S2] phone screens not found — skipping screen fades.");
+      } else {
+        // force safe initial state
+        gsap.set([screens.outgoing, screens.incoming], { opacity: 0, display: "none" });
+        gsap.set(screens.blank, { opacity: 1, display: "block" });
+      }
 
       // antenna fill baseline
       antennaSVG
@@ -552,9 +570,13 @@
         "phoneAntennaIn"
       );
       // lock phone screen state at end of phoneAntennaIn
-      tl.set(screenBlack, { opacity: 1 }, "phoneAntennaIn+=0.22");
-      tl.set(screenOut, { opacity: 0 }, "phoneAntennaIn+=0.22");
-      tl.set(screenIn, { opacity: 0 }, "phoneAntennaIn+=0.22");
+      if (screens) {
+        tl.add(() => {
+          gsap.set(screens.blank, { opacity: 1, display: "block" });
+          gsap.set(screens.outgoing, { opacity: 0, display: "none" });
+          gsap.set(screens.incoming, { opacity: 0, display: "none" });
+        }, "phoneAntennaIn+=0.22");
+      }
 
       tl.addLabel("idleAfterPhone", "+=0.08")
         .to(
@@ -575,9 +597,12 @@
           "outgoingPhase"
         )
         // instant screen swap to avoid blended frames during scrubs
-        .set(screenBlack, { opacity: 0 }, "outgoingPhase")
-        .set(screenOut, { opacity: 1 }, "outgoingPhase")
-        .set(screenIn, { opacity: 0 }, "outgoingPhase")
+        .add(() => {
+          if (!screens) return;
+          gsap.set(screens.blank, { opacity: 0, display: "none" });
+          gsap.set(screens.outgoing, { opacity: 1, display: "block" });
+          gsap.set(screens.incoming, { opacity: 0, display: "none" });
+        }, "outgoingPhase")
         .to(
           topoSVG.querySelectorAll("#topo-phone *"),
           {
@@ -595,9 +620,12 @@
 
       tl.addLabel("incomingPhase", "+=0.02")
         // instant screen swap to avoid blended frames during scrubs
-        .set(screenBlack, { opacity: 0 }, "incomingPhase")
-        .set(screenOut, { opacity: 0 }, "incomingPhase")
-        .set(screenIn, { opacity: 1 }, "incomingPhase")
+        .add(() => {
+          if (!screens) return;
+          gsap.set(screens.blank, { opacity: 0, display: "none" });
+          gsap.set(screens.outgoing, { opacity: 0, display: "none" });
+          gsap.set(screens.incoming, { opacity: 1, display: "block" });
+        }, "incomingPhase")
         .to(
           topoSVG.querySelectorAll("#topo-phone *"),
           {
@@ -629,35 +657,38 @@
       const totalDur = tl.duration();
 
       // --- micro crossfade timelines (paused) that play/reverse when crossing labels
-      const fadeToOutgoing = gsap
-        .timeline({ paused: true })
-        .fromTo(
-          screenBlack,
-          { opacity: 1 },
-          { opacity: 0, duration: 0.15, ease: "power1.out" },
-          0
-        )
-        .fromTo(
-          screenOut,
-          { opacity: 0 },
-          { opacity: 1, duration: 0.15, ease: "power1.out" },
-          0
-        );
+      let fadeToOutgoing, fadeToIncoming;
+      if (screens) {
+        fadeToOutgoing = gsap
+          .timeline({ paused: true })
+          .fromTo(
+            screens.blank,
+            { opacity: 1 },
+            { opacity: 0, duration: 0.15, ease: "power1.out", overwrite: "auto" },
+            0
+          )
+          .fromTo(
+            screens.outgoing,
+            { opacity: 0 },
+            { opacity: 1, duration: 0.15, ease: "power1.out", overwrite: "auto" },
+            0
+          );
 
-      const fadeToIncoming = gsap
-        .timeline({ paused: true })
-        .fromTo(
-          screenOut,
-          { opacity: 1 },
-          { opacity: 0, duration: 0.15, ease: "power1.out" },
-          0
-        )
-        .fromTo(
-          screenIn,
-          { opacity: 0 },
-          { opacity: 1, duration: 0.15, ease: "power1.out" },
-          0
-        );
+        fadeToIncoming = gsap
+          .timeline({ paused: true })
+          .fromTo(
+            screens.outgoing,
+            { opacity: 1 },
+            { opacity: 0, duration: 0.15, ease: "power1.out", overwrite: "auto" },
+            0
+          )
+          .fromTo(
+            screens.incoming,
+            { opacity: 0 },
+            { opacity: 1, duration: 0.15, ease: "power1.out", overwrite: "auto" },
+            0
+          );
+      }
 
       // --- replace pre-pin with the final scrubbed trigger now that tl exists
       const st = ScrollTrigger.create({
@@ -688,22 +719,24 @@
       __teardowns.push(() => st.kill());
 
       // ScrollTriggers tied to timeline labels to play/reverse micro crossfades
-      const stOutXF = ScrollTrigger.create({
-        containerAnimation: tl,
-        start: "outgoingPhase",
-        end: "idleAfterOutgoing",
-        onEnter: () => fadeToOutgoing.play(0),
-        onEnterBack: () => fadeToOutgoing.reverse(),
-      });
-      const stInXF = ScrollTrigger.create({
-        containerAnimation: tl,
-        start: "incomingPhase",
-        end: "tailIdle",
-        onEnter: () => fadeToIncoming.play(0),
-        onEnterBack: () => fadeToIncoming.reverse(),
-      });
-      __teardowns.push(() => stOutXF.kill());
-      __teardowns.push(() => stInXF.kill());
+      if (screens) {
+        const stOutXF = ScrollTrigger.create({
+          containerAnimation: tl,
+          start: "outgoingPhase",
+          end: "idleAfterOutgoing+=0.001",
+          onEnter: () => fadeToOutgoing && fadeToOutgoing.play(0),
+          onEnterBack: () => fadeToOutgoing && fadeToOutgoing.reverse(),
+        });
+        const stInXF = ScrollTrigger.create({
+          containerAnimation: tl,
+          start: "incomingPhase",
+          end: "tailIdle+=0.001",
+          onEnter: () => fadeToIncoming && fadeToIncoming.play(0),
+          onEnterBack: () => fadeToIncoming && fadeToIncoming.reverse(),
+        });
+        __teardowns.push(() => stOutXF.kill());
+        __teardowns.push(() => stInXF.kill());
+      }
 
       // Surface S2 references for optional debug overlay (non-invasive)
       try {
