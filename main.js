@@ -1,4 +1,4 @@
-/* Scene S2 – phone-v2 screens + solid topo + symmetric idles and tail hold
+/* Scene S2 – phone-v3 screens + solid topo + symmetric idles and tail hold
    — Pre-pin clamps scroll at start until assets are ready (no jump ahead)
    — Temporary input suppression (wheel/touch/space/page) during preload
    — Final scrubbed trigger attaches once timeline exists
@@ -22,6 +22,8 @@
       } catch {}
     });
     __teardowns = [];
+    // remove debug hook if present
+    if (window.__S2_HOOK__) delete window.__S2_HOOK__;
   };
 
   // -------- constants
@@ -78,16 +80,27 @@
   gsap.registerPlugin(ScrollTrigger);
   ScrollTrigger.defaults({ invalidateOnRefresh: true, anticipatePin: 1 });
 
-  // -------- assets
-  const topoURL = "./assets/topography.svg";
-  const satURL = "./assets/satellite.svg";
-  const antennaURL = "./assets/antenna.svg";
-  const dotsPhoneURL = "./assets/dots-path-phone.svg";
-  const dotsAntURL = "./assets/dots-path-antenna.svg";
-  const phoneLocal = "./assets/phone-v2.svg";
-  // allow caching for faster subsequent visits
-  const phoneGH =
-    "https://raw.githubusercontent.com/nicolalumpola/HowItWorks/main/assets/phone-v2.svg";
+  // -------- assets (robust paths: /assets/* or project root)
+  const topoURLs = ["./assets/topography.svg", "./topography.svg"];
+  const satURLs = ["./assets/satellite.svg", "./satellite.svg"];
+  const antennaURLs = ["./assets/antenna.svg", "./antenna.svg"];
+  const dotsPhoneURLs = [
+    "./assets/dots-path-phone.svg",
+    "./dots-path-phone.svg",
+  ];
+  const dotsAntURLs = [
+    "./assets/dots-path-antenna.svg",
+    "./dots-path-antenna.svg",
+  ];
+
+  // prefer v3, fall back to v2 (assets or root), then GH raw as last resort
+  const phoneURLs = [
+    "./assets/phone-v3.svg",
+    "./phone-v3.svg",
+    "./assets/phone-v2.svg",
+    "./phone-v2.svg",
+    "https://raw.githubusercontent.com/nicolalumpola/HowItWorks/main/assets/phone-v2.svg",
+  ];
 
   // -------- helpers
   const isSVG = (t) => /<\s*svg[\s>]/i.test(t);
@@ -425,17 +438,17 @@
       __teardowns.push(() => prePin.kill());
 
       // topo first
-      const topoSVG = await inlineSVG(topoURL, topoMount);
+      const topoSVG = await inlineSVGMaybe(topoURLs, topoMount);
       paintTopoBase(topoSVG);
 
-      // rest in parallel
+      // rest in parallel (any failure would have blocked timeline in older code)
       const [satSVG, phoneSVG, antennaSVG, dotsLSVG, dotsRSVG] =
         await Promise.all([
-          inlineSVG(satURL, satMount),
-          inlineSVGMaybe([phoneLocal, phoneGH], phoneMount),
-          inlineSVG(antennaURL, antennaMount),
-          inlineSVG(dotsPhoneURL, dotsLMount),
-          inlineSVG(dotsAntURL, dotsRMount),
+          inlineSVGMaybe(satURLs, satMount),
+          inlineSVGMaybe(phoneURLs, phoneMount),
+          inlineSVGMaybe(antennaURLs, antennaMount),
+          inlineSVGMaybe(dotsPhoneURLs, dotsLMount),
+          inlineSVGMaybe(dotsAntURLs, dotsRMount),
         ]);
 
       // Relayout with real aspects
@@ -654,10 +667,12 @@
       });
       __teardowns.push(() => st.kill());
 
-      // expose timeline + scrolltrigger to external debug tools
+      // --- expose hook for external HUD (debug-s2.js)
       window.__S2_HOOK__ = { tl, st };
       window.dispatchEvent(new CustomEvent("s2:ready", { detail: { tl, st } }));
-      __teardowns.push(() => { if (window.__S2_HOOK__) delete window.__S2_HOOK__; });
+      __teardowns.push(() => {
+        if (window.__S2_HOOK__) delete window.__S2_HOOK__;
+      });
 
       // mark ready → release inputs, keep scroll at section start
       assetsReady = true;

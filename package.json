@@ -4,7 +4,9 @@
   "description": "A template for HTML and CSS",
   "main": "index.html",
   "scripts": {
-    "start": "serve"
+    "dev": "vite --port 5173",
+    "preview": "vite preview --port 5173",
+    "start": "serve -l 5000 ."
   },
   "keywords": [
     "html",
@@ -13,6 +15,7 @@
   "author": "Ives van Hoorne",
   "license": "MIT",
   "devDependencies": {
-    "serve": "11.2.0"
+    "serve": "11.2.0",
+    "vite": "^7.2.1"
   }
 }

@@ -10,15 +10,11 @@
     <main>
       <!-- S2: pinned scene -->
       <section id="section-s2" class="pin-section">
-        <!-- existing layers you already use -->
+        <!-- existing layers -->
         <div id="topoMount" class="layer layer--topo" aria-hidden="true"></div>
-        <div
-          id="satMount"
-          class="layer layer--sat"
-          aria-label="Satellite"
-        ></div>
+        <div id="satMount" class="layer layer--sat" aria-label="Satellite"></div>
 
-        <!-- NEW: dots path overlay (locked to scene) -->
+        <!-- dots path overlay (locked to scene) -->
         <div id="dotsMount" class="layer layer--dots" aria-hidden="true"></div>
       </section>
 
@@ -31,11 +27,20 @@
     <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/ScrollTrigger.min.js"></script>
 
+    <!-- App -->
     <script type="module" src="./main.js"></script>
+
     <!-- Optional: load S2 HUD when ?hud=1 is present -->
     <script type="module">
-      if (new URLSearchParams(location.search).get("hud") === "1") {
-        import("./debug-s2.js").then((m) => m.installHUD?.()).catch(console.warn);
+      try {
+        const params = new URLSearchParams(location.search);
+        if (params.get("hud") === "1") {
+          import("./debug-s2.js")
+            .then((m) => m.installHUD?.())
+            .catch((err) => console.warn("[S2 HUD] load failed:", err));
+        }
+      } catch (e) {
+        console.warn("[S2 HUD] query parsing failed:", e);
       }
     </script>
   </body>
