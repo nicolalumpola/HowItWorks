@@ -678,11 +678,6 @@
         end: () => "+=" + pinLenPx(),
         pin: true,
         scrub: 1,
-        snap: {
-          snapTo: "labelsDirectional",
-          duration: 0.15,
-          ease: "power1.out",
-        },
         animation: tl,
         anticipatePin: 1,
         onUpdate(self) {
