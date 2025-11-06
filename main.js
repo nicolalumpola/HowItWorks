@@ -601,6 +601,16 @@
           "idleAfterPhone"
         );
 
+      // Entrance polish: fade in under-phone orange topo during scale-up
+      if (phoneTopoPhoneNodes.length) {
+        tl.fromTo(
+          phoneTopoPhoneNodes,
+          { opacity: 0 },
+          { opacity: 1, duration: 0.25, ease: "power1.out", immediateRender: false },
+          "phoneAntennaIn"
+        );
+      }
+
       // Accent helpers (topo + antenna colors) with robust resolution
       const phoneTopoPhoneNodes = nodesIn(topoSVG, [
         "#Phone-Topo *",
@@ -641,9 +651,9 @@
       };
 
       tl.addLabel("outgoingPhase", "+=0.02")
-        // instant screen guards around label edge (no blends during scrub)
-        .add(() => { if (hasAllScreens) setScreen("outgoing"); }, `outgoingPhase-=${EPS}`)
-        .add(() => { if (hasAllScreens) setScreen("outgoing"); }, "outgoingPhase+=0");
+        // Guard: reassert full OUTGOING state and L→R at/before label
+        .add(() => { if (hasAllScreens) setScreen("outgoing"); setAccentFor("outgoing"); leftStream?.setDirection(1); rightStream?.setDirection(1); }, `outgoingPhase-=${EPS}`)
+        .add(() => { if (hasAllScreens) setScreen("outgoing"); setAccentFor("outgoing"); leftStream?.setDirection(1); rightStream?.setDirection(1); }, "outgoingPhase+=0");
 
       tl.addLabel("idleAfterOutgoing", "+=0.00").to(
         {},
@@ -652,9 +662,9 @@
       );
 
       tl.addLabel("incomingPhase", "+=0.02")
-        // instant screen guards around label edge (no blends during scrub)
-        .add(() => { if (hasAllScreens) setScreen("outgoing"); }, `incomingPhase-=${EPS}`)
-        .add(() => { if (hasAllScreens) setScreen("incoming"); }, "incomingPhase+=0");
+        // Guard: immediately flip all accents + direction at the label
+        .add(() => { if (hasAllScreens) setScreen("outgoing"); setAccentFor("outgoing"); leftStream?.setDirection(1); rightStream?.setDirection(1); }, `incomingPhase-=${EPS}`)
+        .add(() => { if (hasAllScreens) setScreen("incoming"); setAccentFor("incoming"); leftStream?.setDirection(-1); rightStream?.setDirection(-1); }, "incomingPhase+=0");
 
       tl.addLabel("tailIdle", "+=0.00").to(
         {},
