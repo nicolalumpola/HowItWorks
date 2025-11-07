@@ -610,6 +610,17 @@
         { attr: { stroke: COLORS.orange, fill: COLORS.orange } },
         "phoneAntennaIn"
       );
+      // ensure antenna side/base are brown and antenna fill is white prior to incoming
+      tl.set(
+        topoSVG.querySelectorAll("#topo-antenna *"),
+        { attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } },
+        "phoneAntennaIn"
+      );
+      tl.set(
+        antennaSVG.querySelectorAll("#antenna-fill, #antenna-fill *"),
+        { attr: { fill: COLORS.white } },
+        "phoneAntennaIn"
+      );
 
       tl.addLabel("idleAfterPhone", "+=0.08")
         .to(
@@ -678,6 +689,26 @@
           gsap.set(screenConn, { opacity: 1 });
           gsap.set(screenOut, { opacity: 0 });
         }, null, "connectedPhase");
+      // Re-assert colors/dots to be deterministic when scrubbing
+      tl.set(
+        topoSVG.querySelectorAll("#topo-phone *"),
+        { attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } },
+        "connectedPhase"
+      );
+      tl.set(
+        topoSVG.querySelectorAll("#topo-antenna *"),
+        { attr: { stroke: COLORS.orange, fill: COLORS.orange } },
+        "connectedPhase"
+      );
+      tl.set(
+        antennaSVG.querySelectorAll("#antenna-fill, #antenna-fill *"),
+        { attr: { fill: COLORS.orange } },
+        "connectedPhase"
+      );
+      tl.call(() => {
+        leftStream?.setDirection(-1);
+        rightStream?.setDirection(-1);
+      }, null, "connectedPhase");
 
       // Final tail hold
       tl.addLabel("connectedIdle", "+=0.00").to(
