@@ -45,6 +45,13 @@
     __IDLE_AFTER_PHONE_PREV__ + __INCOMING_IDLE_PREV__ + __CONNECTED_IDLE_PREV__;
   const __EQUAL_IDLE__ = __TOTAL_IDLE__ / 3;
 
+  // We just shortened entrance from ~0.25s to 0.12s → savings ≈ 0.13s.
+  // Distribute that evenly across the three idles so total section length stays the same.
+  const __ENTRANCE_OLD__ = 0.25; // previous pop-in total at this label (duration+stagger)
+  const __ENTRANCE_NEW__ = 0.12; // new pop-in total
+  const __SAVINGS__ = Math.max(0, __ENTRANCE_OLD__ - __ENTRANCE_NEW__);
+  const __EQUAL_IDLE__NEW = __EQUAL_IDLE__ + __SAVINGS__ / 3;
+
   const DESIGN = {
     width: 1280,
     topoH: 184,
@@ -585,22 +592,14 @@
 
       tl.addLabel("phoneAntennaIn", "+=0.22").to(
         [phoneMount, antennaMount],
-        { opacity: 1, scale: 1, duration: 0.22, stagger: 0.03 },
+        { opacity: 1, scale: 1, duration: 0.12, stagger: 0.02 },
         "phoneAntennaIn"
       );
-      // Fade dots on during the same beat
-      tl.to(
-        [dotsLMount, dotsRMount],
-        { opacity: 1, duration: 0.18 },
-        "phoneAntennaIn"
-      );
-      // Topo-phone glows orange here (moved from outgoingPhase)
-      tl.to(
+      // Make these instant so they don't add duration at phoneAntennaIn
+      tl.set([dotsLMount, dotsRMount], { opacity: 1 }, "phoneAntennaIn");
+      tl.set(
         topoSVG.querySelectorAll("#topo-phone *"),
-        {
-          duration: 0.18,
-          attr: { stroke: COLORS.orange, fill: COLORS.orange },
-        },
+        { attr: { stroke: COLORS.orange, fill: COLORS.orange } },
         "phoneAntennaIn"
       );
 
@@ -631,21 +630,9 @@
         "phoneAntennaIn"
       );
 
-      // Anchor idleAfterPhone exactly at the end of all phoneAntennaIn starters
-      const PA_START = tl.labels.phoneAntennaIn;
-      const paChildren = tl
-        .getChildren(true, true, true)
-        .filter(
-          (k) =>
-            typeof k.startTime === "function" &&
-            typeof k.duration === "function" &&
-            Math.abs(k.startTime() - PA_START) < 1e-5
-        );
-      const PA_END = paChildren.length
-        ? Math.max(PA_START, ...paChildren.map((k) => k.startTime() + k.duration()))
-        : PA_START;
-      tl.addLabel("idleAfterPhone", PA_END);
-      tl.to({}, { duration: __EQUAL_IDLE__ }, "idleAfterPhone");
+      // Idle starts exactly after the new entrance completes (0.12s after label)
+      tl.addLabel("idleAfterPhone", "phoneAntennaIn+=0.12");
+      tl.to({}, { duration: __EQUAL_IDLE__NEW }, "idleAfterPhone");
 
       
 
@@ -680,7 +667,7 @@
 
       tl.addLabel("incomingIdle", "+=0.00").to(
         {},
-        { duration: __EQUAL_IDLE__ },
+        { duration: __EQUAL_IDLE__NEW },
         "incomingIdle"
       );
 
@@ -714,7 +701,7 @@
       // Final tail hold
       tl.addLabel("connectedIdle", "+=0.00").to(
         {},
-        { duration: __EQUAL_IDLE__ },
+        { duration: __EQUAL_IDLE__NEW },
         "connectedIdle"
       );
 
