@@ -4,6 +4,8 @@
 
 let killHUD = null;
 
+const COLORS = { topoBase: "#634729", orange: "#F5A145", white: "#FFFFFF" };
+
 function buildHUD(tl, st) {
   const total = tl.duration();
   const labels = Object.entries(tl.labels)
@@ -94,7 +96,163 @@ function buildHUD(tl, st) {
 
   card.append(row, barWrap);
   hud.appendChild(card);
+
+  // --- Inspector + Enforcer panel (interactive)
+  const panel = document.createElement("div");
+  panel.style.cssText = [
+    "margin-top:8px",
+    "background:rgba(0,0,0,0.4)",
+    "backdrop-filter:saturate(140%) blur(6px)",
+    "border:1px solid rgba(255,255,255,0.15)",
+    "border-radius:10px",
+    "padding:8px 10px",
+    "box-shadow:0 6px 14px rgba(0,0,0,0.35)",
+    "pointer-events:auto",
+  ].join(";");
+
+  const line = (label) => {
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex; align-items:center; gap:8px; margin:4px 0;";
+    const k = document.createElement("span");
+    k.style.cssText = "opacity:0.8; min-width:110px;";
+    k.textContent = label;
+    const v = document.createElement("span");
+    v.style.cssText = "font-weight:600";
+    row.append(k, v);
+    panel.appendChild(row);
+    return v;
+  };
+
+  const curLabelEl = line("Current Label");
+  const screensEl = line("Screens (O/I/C)");
+  const dotsEl = line("Dot Direction");
+
+  const swatchRow = document.createElement("div");
+  swatchRow.style.cssText = "display:flex; gap:10px; align-items:center; margin:4px 0;";
+  const makeSwatch = (name) => {
+    const wrap = document.createElement("div");
+    const k = document.createElement("span");
+    k.textContent = name;
+    k.style.cssText = "opacity:0.8; min-width:110px;";
+    const box = document.createElement("span");
+    box.style.cssText = "display:inline-block; width:18px; height:12px; border-radius:3px; border:1px solid rgba(255,255,255,0.35); vertical-align:middle;";
+    const val = document.createElement("span");
+    val.style.cssText = "margin-left:6px;";
+    wrap.style.cssText = "display:flex; align-items:center; gap:8px;";
+    wrap.append(k, box, val);
+    panel.appendChild(wrap);
+    return { box, val };
+  };
+  const phoneSw = makeSwatch("Topo Phone");
+  const antSw = makeSwatch("Topo Antenna");
+  const antFillSw = makeSwatch("Antenna Fill");
+
+  const enforceWrap = document.createElement("label");
+  enforceWrap.style.cssText = "display:flex; align-items:center; gap:8px; margin-top:6px; user-select:none;";
+  const enforceCb = document.createElement("input");
+  enforceCb.type = "checkbox";
+  const enforceText = document.createElement("span");
+  enforceText.textContent = "Enforce state at labels";
+  enforceWrap.append(enforceCb, enforceText);
+  panel.appendChild(enforceWrap);
+
+  hud.appendChild(panel);
   document.body.appendChild(hud);
+
+  // --- Targets and helpers
+  const phoneSVG = document.querySelector("#phoneMount svg");
+  const topoSVG = document.querySelector("#topoMount svg");
+  const antennaSVG = document.querySelector("#antennaMount svg");
+  const q = (root, arr) => {
+    for (const s of arr) {
+      const n = root?.querySelector(s);
+      if (n) return n;
+    }
+    return null;
+  };
+  const screenOut = q(phoneSVG, [
+    "#Outgoing-Screen",
+    "#Screen-Outgoing",
+    "[id='Outgoing-Screen']",
+  ]);
+  const screenIn = q(phoneSVG, [
+    "#Incoming-Screen",
+    "#Screen-Incoming",
+    "[id='Incoming-Screen']",
+  ]);
+  const screenConn = q(phoneSVG, [
+    "#Connected-Screen",
+    "#Screen-Connected",
+    "[id='Connected-Screen']",
+  ]);
+  const phoneTopo = topoSVG?.querySelectorAll("#topo-phone *");
+  const antTopo = topoSVG?.querySelectorAll("#topo-antenna *");
+  const antFill = antennaSVG?.querySelectorAll("#antenna-fill, #antenna-fill *");
+
+  const getPhase = () => {
+    const t = tl.time();
+    const tIncoming = tl.labels?.incomingPhase ?? Number.POSITIVE_INFINITY;
+    const tConnected = tl.labels?.connectedPhase ?? Number.POSITIVE_INFINITY;
+    if (t < tIncoming) return "OUTGOING";
+    if (t < tConnected) return "INCOMING";
+    return "CONNECTED";
+  };
+
+  let dotDir = 1;
+  const setDotDir = (d) => {
+    dotDir = d >= 0 ? 1 : -1;
+    try {
+      // best-effort: if streams are global (unlikely), update them
+      (window.leftStream?.setDirection && window.leftStream.setDirection(dotDir));
+      (window.rightStream?.setDirection && window.rightStream.setDirection(dotDir));
+    } catch {}
+  };
+
+  function enforce() {
+    const phase = getPhase();
+    if (phase === "OUTGOING") {
+      screenOut && gsap.set(screenOut, { opacity: 1 });
+      gsap.set([screenIn, screenConn].filter(Boolean), { opacity: 0 });
+      setDotDir(1);
+      phoneTopo?.forEach((n) => {
+        n.setAttribute("stroke", COLORS.orange);
+        n.setAttribute("fill", COLORS.orange);
+      });
+      antTopo?.forEach((n) => {
+        n.setAttribute("stroke", COLORS.topoBase);
+        n.setAttribute("fill", COLORS.topoBase);
+      });
+      antFill?.forEach((n) => n.setAttribute("fill", COLORS.white));
+    } else if (phase === "INCOMING") {
+      screenIn && gsap.set(screenIn, { opacity: 1 });
+      gsap.set([screenOut, screenConn].filter(Boolean), { opacity: 0 });
+      setDotDir(-1);
+      phoneTopo?.forEach((n) => {
+        n.setAttribute("stroke", COLORS.topoBase);
+        n.setAttribute("fill", COLORS.topoBase);
+      });
+      antTopo?.forEach((n) => {
+        n.setAttribute("stroke", COLORS.orange);
+        n.setAttribute("fill", COLORS.orange);
+      });
+      antFill?.forEach((n) => n.setAttribute("fill", COLORS.orange));
+    } else {
+      // CONNECTED
+      screenConn && gsap.set(screenConn, { opacity: 1 });
+      gsap.set([screenOut, screenIn].filter(Boolean), { opacity: 0 });
+      setDotDir(-1);
+      // colors same as INCOMING
+      phoneTopo?.forEach((n) => {
+        n.setAttribute("stroke", COLORS.topoBase);
+        n.setAttribute("fill", COLORS.topoBase);
+      });
+      antTopo?.forEach((n) => {
+        n.setAttribute("stroke", COLORS.orange);
+        n.setAttribute("fill", COLORS.orange);
+      });
+      antFill?.forEach((n) => n.setAttribute("fill", COLORS.orange));
+    }
+  }
 
   function currentLabelName(time) {
     let best = null;
@@ -108,6 +266,35 @@ function buildHUD(tl, st) {
     bar.style.width = (p * 100).toFixed(3) + "%";
     progEl.textContent = `progress: ${p.toFixed(3)}  (t=${t.toFixed(2)} / ${total.toFixed(2)}s)`;
     labelEl.textContent = `label: ${currentLabelName(t)}`;
+
+    // inspector values
+    curLabelEl.textContent = currentLabelName(t);
+    const getOpacity = (el) => {
+      if (!el) return "—";
+      const styleOp = (el.style?.opacity ?? "");
+      const a = el.getAttribute && el.getAttribute("opacity");
+      const v = styleOp || a || "";
+      return v === "" ? (getComputedStyle(el).opacity ?? "?") : v;
+    };
+    screensEl.textContent = `${getOpacity(screenOut)} / ${getOpacity(screenIn)} / ${getOpacity(screenConn)}`;
+    dotsEl.textContent = dotDir >= 0 ? "→" : "←";
+    // sample first nodes for color labels
+    const sample = (nodes) => {
+      const n = nodes && nodes[0];
+      if (!n) return { stroke: "?", fill: "?" };
+      return { stroke: n.getAttribute("stroke") || "?", fill: n.getAttribute("fill") || "?" };
+    };
+    const pS = sample(phoneTopo);
+    const aS = sample(antTopo);
+    const aF = sample(antFill);
+    phoneSw.box.style.background = pS.fill;
+    phoneSw.val.textContent = pS.fill?.toUpperCase() || "?";
+    antSw.box.style.background = aS.fill;
+    antSw.val.textContent = aS.fill?.toUpperCase() || "?";
+    antFillSw.box.style.background = aF.fill;
+    antFillSw.val.textContent = aF.fill?.toUpperCase() || "?";
+
+    if (enforceCb.checked) enforce();
   }
 
   // updates
@@ -156,4 +343,3 @@ export function installHUD() {
     if (killHUD) { killHUD(); killHUD = null; }
   });
 }
-
