@@ -775,6 +775,32 @@
         connectedIdleTween.duration(connectedIdleTween.duration() + saved);
       }
 
+      // ----- Dot direction director (scrub-safe in both directions)
+      function attachDotDirector(tl, leftStream, rightStream) {
+        let current = null;
+        const setDir = (d) => {
+          if (current === d) return;
+          current = d;
+          leftStream?.setDirection(d);
+          rightStream?.setDirection(d);
+        };
+
+        const evalDir = () => {
+          const L = tl.labels || {};
+          const t = tl.time();
+          // Outgoing region: before 'incomingPhase' → direction +1
+          // Incoming/Connected region: from 'incomingPhase' onward → direction -1
+          if (t < (L.incomingPhase ?? 0)) setDir(1);
+          else setDir(-1);
+        };
+
+        // initialize once now
+        evalDir();
+        return { evalDir };
+      }
+
+      const DOTS = attachDotDirector(tl, leftStream, rightStream);
+
       const totalDur = tl.duration();
 
       // --- replace pre-pin with the final scrubbed trigger now that tl exists
@@ -787,7 +813,10 @@
         animation: tl,
         anticipatePin: 1,
         onUpdate() {
-          // Dot direction changes are handled at labels.
+          DOTS.evalDir(); // keep dots direction correct while scrubbing
+        },
+        onRefresh() {
+          DOTS.evalDir(); // re-evaluate after refresh/resizes
         },
       });
       __teardowns.push(() => st.kill());
