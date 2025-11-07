@@ -30,9 +30,20 @@
   const COLORS = { topoBase: "#634729", orange: "#F5A145", white: "#FFFFFF" };
 
   // timing beats
-  const IDLE_BETWEEN_PHONE_AND_OUTGOING = 0.14; // shortened idle after phone (halved)
+  const IDLE_BETWEEN_PHONE_AND_OUTGOING = 0.035; // 75% shorter idle after phone
   const IDLE_BETWEEN_OUTGOING_AND_INCOMING = IDLE_BETWEEN_PHONE_AND_OUTGOING;
   const TAIL_IDLE_AFTER_ALL = IDLE_BETWEEN_PHONE_AND_OUTGOING; // match idleAfterPhone length
+
+  // --- Equalize the three idles while preserving total idle time
+  // Capture current per-idle durations BEFORE we overwrite them:
+  const __IDLE_AFTER_PHONE_PREV__ = IDLE_BETWEEN_PHONE_AND_OUTGOING;
+  const __INCOMING_IDLE_PREV__ = TAIL_IDLE_AFTER_ALL;
+  // Determine what connectedIdle currently uses in the TL. KEEP THIS IN SYNC with the TL below.
+  const __CONNECTED_IDLE_PREV__ = TAIL_IDLE_AFTER_ALL * 2;
+  // Compute equal slice across the three idles
+  const __TOTAL_IDLE__ =
+    __IDLE_AFTER_PHONE_PREV__ + __INCOMING_IDLE_PREV__ + __CONNECTED_IDLE_PREV__;
+  const __EQUAL_IDLE__ = __TOTAL_IDLE__ / 3;
 
   const DESIGN = {
     width: 1280,
@@ -620,12 +631,21 @@
         "phoneAntennaIn"
       );
 
-      tl.addLabel("idleAfterPhone", "+=0.08")
-        .to(
-          {},
-          { duration: IDLE_BETWEEN_PHONE_AND_OUTGOING },
-          "idleAfterPhone"
+      // Anchor idleAfterPhone exactly at the end of all phoneAntennaIn starters
+      const PA_START = tl.labels.phoneAntennaIn;
+      const paChildren = tl
+        .getChildren(true, true, true)
+        .filter(
+          (k) =>
+            typeof k.startTime === "function" &&
+            typeof k.duration === "function" &&
+            Math.abs(k.startTime() - PA_START) < 1e-5
         );
+      const PA_END = paChildren.length
+        ? Math.max(PA_START, ...paChildren.map((k) => k.startTime() + k.duration()))
+        : PA_START;
+      tl.addLabel("idleAfterPhone", PA_END);
+      tl.to({}, { duration: __EQUAL_IDLE__ }, "idleAfterPhone");
 
       
 
@@ -660,7 +680,7 @@
 
       tl.addLabel("incomingIdle", "+=0.00").to(
         {},
-        { duration: TAIL_IDLE_AFTER_ALL },
+        { duration: __EQUAL_IDLE__ },
         "incomingIdle"
       );
 
@@ -694,7 +714,7 @@
       // Final tail hold
       tl.addLabel("connectedIdle", "+=0.00").to(
         {},
-        { duration: TAIL_IDLE_AFTER_ALL },
+        { duration: __EQUAL_IDLE__ },
         "connectedIdle"
       );
 
