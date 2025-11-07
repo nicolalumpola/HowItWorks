@@ -253,6 +253,8 @@
         if (n.hasAttribute("stroke")) n.setAttribute("stroke", COLORS.topoBase);
         if (n.hasAttribute("fill") && n.getAttribute("fill") !== "none")
           n.setAttribute("fill", COLORS.topoBase);
+        // prevent stroke thickening when ancestors scale/transform
+        n.setAttribute("vector-effect", "non-scaling-stroke");
         n.style.strokeOpacity = "";
         n.style.fillOpacity = "";
         n.removeAttribute("stroke-opacity");
