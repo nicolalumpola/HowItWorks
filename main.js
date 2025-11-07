@@ -30,7 +30,7 @@
   const COLORS = { topoBase: "#634729", orange: "#F5A145", white: "#FFFFFF" };
 
   // timing beats
-  const IDLE_BETWEEN_PHONE_AND_OUTGOING = 0.28; // shortened idle after phone
+  const IDLE_BETWEEN_PHONE_AND_OUTGOING = 0.14; // shortened idle after phone (halved)
   const IDLE_BETWEEN_OUTGOING_AND_INCOMING = IDLE_BETWEEN_PHONE_AND_OUTGOING;
   const TAIL_IDLE_AFTER_ALL = IDLE_BETWEEN_PHONE_AND_OUTGOING; // match idleAfterPhone length
 
@@ -503,16 +503,14 @@
           "[S2] Connected screen group not found (expected id 'Screen-Connected')."
         );
       [screenBlack, screenOut, screenIn, screenConn].forEach(forceShow);
-      // Blank is never shown; keep it fully transparent throughout
+      // Blank is never shown; keep fully transparent (no display toggles)
       gsap.set(screenBlack, { opacity: 0 });
-      hide(screenBlack);
-      // Outgoing is our default/initial phone screen
+      // Outgoing is our default/initial phone screen (keep displayable once)
       show(screenOut);
       gsap.set(screenOut, { opacity: 1 });
+      // Only control visibility via opacity from here on
       gsap.set(screenIn, { opacity: 0 });
-      hide(screenIn);
       gsap.set(screenConn, { opacity: 0 });
-      hide(screenConn);
 
       // antenna fill baseline
       antennaSVG
@@ -632,19 +630,9 @@
       
 
       tl.addLabel("incomingPhase", "+=0.02")
-        .call(() => {
-          show(screenIn);
-        })
-        // Hard cut swap at label start (no crossfade)
-        .call(() => {
-          // ensure both are displayable so set() affects them
-          show(screenOut);
-          show(screenIn);
-          // hard cut: Outgoing OFF, Incoming ON
-          gsap.set(screenOut, { opacity: 0 });
-          gsap.set(screenIn, { opacity: 1 });
-        }, null, "incomingPhase")
-        // pre-Connected OFF state before connectedPhase
+        // Hard cut at label (reversible via timeline)
+        .set(screenOut, { opacity: 0 }, "incomingPhase")
+        .set(screenIn, { opacity: 1 }, "incomingPhase")
         .set(screenConn, { opacity: 0 }, "incomingPhase")
         .set(
           topoSVG.querySelectorAll("#topo-phone *"),
@@ -678,17 +666,10 @@
 
       // After incoming, we show the connected screen
       tl.addLabel("connectedPhase", "+=0.00")
-        // Hard cut swap at label start (no crossfade)
-        .call(() => {
-          // ensure both targets are displayable
-          show(screenConn);
-          show(screenIn);
-          show(screenOut); // safe: we'll clamp opacities next
-          // hard cut: Incoming OFF, Connected ON; Outgoing OFF
-          gsap.set(screenIn, { opacity: 0 });
-          gsap.set(screenConn, { opacity: 1 });
-          gsap.set(screenOut, { opacity: 0 });
-        }, null, "connectedPhase");
+        // Hard cut at label (reversible via timeline)
+        .set(screenOut, { opacity: 0 }, "connectedPhase")
+        .set(screenIn, { opacity: 0 }, "connectedPhase")
+        .set(screenConn, { opacity: 1 }, "connectedPhase");
       // Re-assert colors/dots to be deterministic when scrubbing
       tl.set(
         topoSVG.querySelectorAll("#topo-phone *"),
