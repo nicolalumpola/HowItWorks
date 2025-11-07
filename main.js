@@ -632,7 +632,11 @@
 
       // Idle starts exactly after the new entrance completes (0.12s after label)
       tl.addLabel("idleAfterPhone", "phoneAntennaIn+=0.12");
-      tl.to({}, { duration: __EQUAL_IDLE__NEW }, "idleAfterPhone");
+      const t_idleAfterPhone = tl.to(
+        {},
+        { duration: __EQUAL_IDLE__NEW },
+        "idleAfterPhone"
+      );
 
       
 
@@ -665,7 +669,8 @@
       // mark end of incoming phase for ScrollTrigger direction logic
       tl.addLabel("incomingPhaseEnd");
 
-      tl.addLabel("incomingIdle", "+=0.00").to(
+      tl.addLabel("incomingIdle", "+=0.00");
+      const t_incomingIdle = tl.to(
         {},
         { duration: __EQUAL_IDLE__NEW },
         "incomingIdle"
@@ -699,11 +704,55 @@
       }, null, "connectedPhase");
 
       // Final tail hold
-      tl.addLabel("connectedIdle", "+=0.00").to(
+      tl.addLabel("connectedIdle", "+=0.00");
+      const t_connectedIdle = tl.to(
         {},
         { duration: __EQUAL_IDLE__NEW },
         "connectedIdle"
       );
+
+      // --- EVEN-SPACING RETIMER (post-build)
+      // We want 4 evenly spaced beats along the existing duration:
+      // [phoneAntennaIn, incomingPhase, connectedPhase, connectedIdle]
+      // Then adjust the 3 idle tween durations to exactly fill the gaps.
+      (function evenSpaceBeatsAndFitIdles() {
+        const marks = [
+          "phoneAntennaIn",
+          "incomingPhase",
+          "connectedPhase",
+          "connectedIdle",
+        ];
+        const D = tl.duration();
+        const N = marks.length;
+        const GAP = D / (N + 1);
+
+        // 1) Move the beat labels to evenly spaced positions
+        for (let i = 0; i < N; i++) {
+          const targetT = (i + 1) * GAP;
+          tl.addLabel(marks[i], targetT);
+        }
+
+        // Keep 'incomingPhaseEnd' aligned with 'incomingPhase'
+        if (tl.labels.incomingPhaseEnd != null) {
+          tl.addLabel("incomingPhaseEnd", tl.labels.incomingPhase);
+        }
+
+        // 2) Fit idle durations into the exact gaps
+        const ENTRANCE_DUR = 0.12; // pop-in duration at phoneAntennaIn
+
+        const tPA = tl.labels.phoneAntennaIn;
+        const tIP = tl.labels.incomingPhase;
+        const tCP = tl.labels.connectedPhase;
+        const tCIDL = tl.labels.connectedIdle;
+
+        const d1 = Math.max(0.0001, tIP - (tPA + ENTRANCE_DUR));
+        const d2 = Math.max(0.0001, tCP - tIP);
+        const d3 = Math.max(0.0001, D - tCP);
+
+        if (t_idleAfterPhone?.duration) t_idleAfterPhone.duration(d1);
+        if (t_incomingIdle?.duration) t_incomingIdle.duration(d2);
+        if (t_connectedIdle?.duration) t_connectedIdle.duration(d3);
+      })();
 
       const totalDur = tl.duration();
 
