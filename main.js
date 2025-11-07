@@ -30,7 +30,7 @@
   const COLORS = { topoBase: "#634729", orange: "#F5A145", white: "#FFFFFF" };
 
   // timing beats
-  const IDLE_BETWEEN_PHONE_AND_OUTGOING = 0.44;
+  const IDLE_BETWEEN_PHONE_AND_OUTGOING = 0.28; // shortened idle after phone
   const IDLE_BETWEEN_OUTGOING_AND_INCOMING = IDLE_BETWEEN_PHONE_AND_OUTGOING;
   const TAIL_IDLE_AFTER_ALL = IDLE_BETWEEN_PHONE_AND_OUTGOING; // match idleAfterPhone length
 
@@ -595,6 +595,22 @@
         "phoneAntennaIn"
       );
 
+      // Pre-state cuts at "phoneAntennaIn" to guarantee clean reverse
+      tl.set(screenOut, { opacity: 1 }, "phoneAntennaIn");
+      tl.set(screenIn, { opacity: 0 }, "phoneAntennaIn");
+      tl.set(screenConn, { opacity: 0 }, "phoneAntennaIn");
+      tl.call(() => {
+        // dots forward prior to incoming
+        leftStream?.setDirection(1);
+        rightStream?.setDirection(1);
+      }, null, "phoneAntennaIn");
+      // ensure topo-phone is orange from this beat as a defined pre-incoming state
+      tl.set(
+        topoSVG.querySelectorAll("#topo-phone *"),
+        { attr: { stroke: COLORS.orange, fill: COLORS.orange } },
+        "phoneAntennaIn"
+      );
+
       tl.addLabel("idleAfterPhone", "+=0.08")
         .to(
           {},
@@ -617,6 +633,8 @@
           gsap.set(screenOut, { opacity: 0 });
           gsap.set(screenIn, { opacity: 1 });
         }, null, "incomingPhase")
+        // pre-Connected OFF state before connectedPhase
+        .set(screenConn, { opacity: 0 }, "incomingPhase")
         .set(
           topoSVG.querySelectorAll("#topo-phone *"),
           { attr: { stroke: COLORS.topoBase, fill: COLORS.topoBase } },
