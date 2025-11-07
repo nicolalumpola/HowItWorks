@@ -775,9 +775,11 @@
         connectedIdleTween.duration(connectedIdleTween.duration() + saved);
       }
 
-      // ----- Dot direction director (scrub-safe in both directions)
+      // ----- Dot direction director (flip exactly at label crossings)
       function attachDotDirector(tl, leftStream, rightStream) {
         let current = null;
+        let prevT = tl.time();
+
         const setDir = (d) => {
           if (current === d) return;
           current = d;
@@ -785,18 +787,29 @@
           rightStream?.setDirection(d);
         };
 
-        const evalDir = () => {
+        const findCross = () => {
           const L = tl.labels || {};
+          const tIncoming = L.incomingPhase ?? 0;
+          const EPS = 1e-5;
           const t = tl.time();
-          // Outgoing region: before 'incomingPhase' → direction +1
-          // Incoming/Connected region: from 'incomingPhase' onward → direction -1
-          if (t < (L.incomingPhase ?? 0)) setDir(1);
-          else setDir(-1);
+
+          if (prevT < tIncoming - EPS && t >= tIncoming - EPS) {
+            setDir(-1); // crossing down into Incoming
+          } else if (prevT >= tIncoming + EPS && t < tIncoming + EPS) {
+            setDir(1); // crossing up back to Outgoing
+          }
+
+          prevT = t;
         };
 
-        // initialize once now
-        evalDir();
-        return { evalDir };
+        // Initialize to correct state at current time
+        (function init() {
+          const L = tl.labels || {};
+          const tIncoming = L.incomingPhase ?? 0;
+          setDir(tl.time() < tIncoming ? 1 : -1);
+        })();
+
+        return { tick: findCross, force: () => { prevT = Number.NaN; findCross(); } };
       }
 
       const DOTS = attachDotDirector(tl, leftStream, rightStream);
@@ -813,10 +826,10 @@
         animation: tl,
         anticipatePin: 1,
         onUpdate() {
-          DOTS.evalDir(); // keep dots direction correct while scrubbing
+          DOTS.tick(); // flip exactly when crossing 'incomingPhase'
         },
         onRefresh() {
-          DOTS.evalDir(); // re-evaluate after refresh/resizes
+          DOTS.force(); // re-evaluate after refresh/resizes
         },
       });
       __teardowns.push(() => st.kill());
