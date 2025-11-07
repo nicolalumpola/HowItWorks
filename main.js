@@ -44,6 +44,8 @@
   const __TOTAL_IDLE__ =
     __IDLE_AFTER_PHONE_PREV__ + __INCOMING_IDLE_PREV__ + __CONNECTED_IDLE_PREV__;
   const __EQUAL_IDLE__ = __TOTAL_IDLE__ / 3;
+  // ↓ New: explicit intro lead-in timing (before phoneAntennaIn)
+  const INTRO_LEAD_IN = 0.06; // was 0.22 — cut the dead time at start
 
   // We just shortened entrance from ~0.25s to 0.12s → savings ≈ 0.13s.
   // Distribute that evenly across the three idles so total section length stays the same.
@@ -590,7 +592,7 @@
 
       
 
-      tl.addLabel("phoneAntennaIn", "+=0.22").to(
+      tl.addLabel("phoneAntennaIn", "+=" + INTRO_LEAD_IN).to(
         [phoneMount, antennaMount],
         { opacity: 1, scale: 1, duration: 0.12, stagger: 0.02 },
         "phoneAntennaIn"
@@ -753,6 +755,25 @@
         if (t_incomingIdle?.duration) t_incomingIdle.duration(d2);
         if (t_connectedIdle?.duration) t_connectedIdle.duration(d3);
       })();
+
+      // ---- keep total feel the same by pushing the saved time to the end hold
+      const OLD_INTRO_LEAD_IN = 0.22;
+      const saved = Math.max(0, OLD_INTRO_LEAD_IN - INTRO_LEAD_IN);
+      // find the connectedIdle tween that starts at the 'connectedIdle' label
+      const connectedIdleTween = tl
+        .getChildren(true, true, true)
+        .find((k) => {
+          return (
+            typeof k.startTime === "function" &&
+            Math.abs(k.startTime() - tl.labels.connectedIdle) < 1e-5 &&
+            typeof k.duration === "function" &&
+            k.duration() > 0
+          );
+        });
+      // extend that final hold by the saved amount
+      if (connectedIdleTween) {
+        connectedIdleTween.duration(connectedIdleTween.duration() + saved);
+      }
 
       const totalDur = tl.duration();
 
